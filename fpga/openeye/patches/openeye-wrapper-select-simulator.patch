@@ -1,0 +1,21 @@
+diff --git a/test/cocotb_fpga/test_conv_const.py b/test/cocotb_fpga/test_conv_const.py
+--- a/test/cocotb_fpga/test_conv_const.py
++++ b/test/cocotb_fpga/test_conv_const.py
+@@ -124,6 +124,7 @@
+     ]
+     verilog_sources.append(os.path.join(target_dir, "dma_storage.v"))
+ 
++    simulator = os.environ.get("OPENEYE_SIMULATOR", "icarus")
+     cocotb_test.simulator.run(
+         python_search=[test_dir],
+         verilog_sources=verilog_sources,
+@@ -133,7 +134,8 @@
+         testcase="start_test_fpga",
+         defines={"NO_TRACE": "TRUE", "USE_INTERNAL_PARAMS_PE": "TRUE"},
+         force_compile=True,
+-        simulator="icarus",
++        simulator=simulator,
++        compile_args=["-Wno-fatal", "-Wno-BLKANDNBLK"] if simulator == "verilator" else [],
+         extra_env={
+             "CLOCK_LEN":               str(clk_cycle),
+             "CLOCK_UNIT":              clk_cycle_unit,

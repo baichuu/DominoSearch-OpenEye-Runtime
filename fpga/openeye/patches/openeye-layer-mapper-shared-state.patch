@@ -1,0 +1,32 @@
+diff --git a/src/open_eye/layer_mapper.py b/src/open_eye/layer_mapper.py
+--- a/src/open_eye/layer_mapper.py
++++ b/src/open_eye/layer_mapper.py
+@@ -159,16 +159,18 @@
+             self.storage = [[] for _ in range(len(strdic.stream_parallel_dict))]
+ 
+     def make_stream(self):
+-        """Generate all streams. The three data streams are independent and run
+-        in a process pool; the configuration (status, quantization) is packed in
+-        this process afterwards because it needs the stream lengths."""
+-        with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
+-            f_iact = executor.submit(_mp_generate_iact, self.IactStreamCreator, self.layer_params.skipIact)
+-            f_wght = executor.submit(_mp_generate_wght, self.WghtStreamCreator, self.layer_params.skipWght)
+-            f_psum = executor.submit(_mp_generate_psum, self.PsumStreamCreator, self.layer_params.skipPsum)
+-            self.storage[strdic.stream_parallel_dict["iact"]] = f_iact.result()
+-            self.storage[strdic.stream_parallel_dict["wght"]] = f_wght.result()
+-            self.storage[strdic.stream_parallel_dict["psum"]] = f_psum.result()
++        """Generate streams and shared metadata before packing configuration."""
++        # Stream creators update shared layer_params, including the maintained
++        # pair-safe mapper's actual packed weight-tile stride. A process pool
++        # returns streams but loses those updates before status is packed.
++        for key, creator, skip in (
++            ("iact", self.IactStreamCreator, self.layer_params.skipIact),
++            ("wght", self.WghtStreamCreator, self.layer_params.skipWght),
++            ("psum", self.PsumStreamCreator, self.layer_params.skipPsum),
++        ):
++            self.storage[strdic.stream_parallel_dict[key]] = (
++                getattr(creator, "get_" + key + "_stream")() if skip == 0 else []
++            )
+         if self.params.SERIAL:
+             for name, key in (("trans_cycles_iact", "iact"),
+                               ("trans_cycles_wght", "wght"),

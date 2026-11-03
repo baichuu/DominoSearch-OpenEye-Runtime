@@ -1,0 +1,37 @@
+diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
+--- a/src/open_eye/rtl_test_utils.py
++++ b/src/open_eye/rtl_test_utils.py
+@@ -1067,7 +1067,12 @@
+     except ValueError:
+         fail_after = 0
+     if fail_after:
+-        stall_report_after = min(stall_report_after, fail_after)
++        # A long, healthy WAIT_FOR_RESULTS interval leaves the main state
++        # unchanged while current_cycle and the psum FSM continue advancing.
++        # The progress-key watchdog below distinguishes that from a real hang;
++        # disable the older main-state-only dump to avoid false ERROR reports
++        # and a large per-PE dump in every realistic layer run.
++        stall_report_after = 0
+     progress_key = None
+     idle_for = 0
+     while True:
+@@ -1102,7 +1107,7 @@
+                 # A state that stops advancing is the signature of a section
+                 # word-count mismatch, so report the counters that gate the
+                 # exit once rather than leaving a silent run to time out.
+-                if stuck_for == stall_report_after and not reported:
++                if stall_report_after and stuck_for == stall_report_after and not reported:
+                     reported = True
+                     counters = []
+                     for name in ("fsm_cycle", "fsm_psum_cycle", "fsm_psum_current_state",
+@@ -1203,8 +1208,8 @@
+                     if not reported:
+                         logger.error("FSM progress counters stuck at %s", key)
+                     raise AssertionError(
+-                        "No FSM progress for %d cycles (main state, psum state, psum cycle, compute cycle) = %s; "
+-                        "see the stall diagnostics above" % (fail_after, key))
++                        "No FSM progress for %d cycles (main state, psum state, psum cycle, compute cycle) = %s"
++                        % (fail_after, key))
+             else:
+                 progress_key = key
+                 idle_for = 0

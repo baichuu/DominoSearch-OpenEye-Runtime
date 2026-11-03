@@ -1,0 +1,12 @@
+diff --git a/test/cocotb_PE/test_PE_dense.py b/test/cocotb_PE/test_PE_dense.py
+--- a/test/cocotb_PE/test_PE_dense.py
++++ b/test/cocotb_PE/test_PE_dense.py
+@@ -132,7 +132,7 @@
+         testcase="start_test_pe",
+         defines={"NO_TRACE": "TRUE"},
+         force_compile=True,
+-        waves=True,  # Enable waveforms for debugging
++        waves=False,  # Icarus 13 can hang after a passing non-DSP run with FST enabled.
+         simulator="icarus",
+         extra_env=extra_env,
+         parameters={"SPARSITY_EN": 0, "USE_DSP": USE_DSP}  # Pass both parameters to Verilog

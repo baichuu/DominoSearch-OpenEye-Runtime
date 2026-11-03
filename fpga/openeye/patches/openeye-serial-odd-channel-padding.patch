@@ -1,0 +1,44 @@
+diff --git a/src/open_eye/layer_parameters.py b/src/open_eye/layer_parameters.py
+--- a/src/open_eye/layer_parameters.py
++++ b/src/open_eye/layer_parameters.py
+@@ -740,6 +740,14 @@
+             if (self.used_channels == 0):
+                 assert False
+         self.used_channels = min(self.channels,self.used_channels)
++        # Serial convolution delivery consumes channel pairs. Keep the
++        # single-channel specialized path, but pad an odd multi-channel
++        # group instead of allowing one pixel to straddle the next pair.
++        if params.SERIAL and self.used_channels > 1 and self.used_channels % 2:
++            padded_channels = self.used_channels + 1
++            if padded_channels * self.kernel_size[1] > params.Iacts_per_PE:
++                raise ValueError("Paired activation padding exceeds PE capacity")
++            self.used_channels = padded_channels
+         self.channel_div_trans = math.ceil(self.used_channels/2)
+ 
+     def calculate_needed_refreshes_mx(self, params):
+diff --git a/src/open_eye/iact_stream_mapper.py b/src/open_eye/iact_stream_mapper.py
+--- a/src/open_eye/iact_stream_mapper.py
++++ b/src/open_eye/iact_stream_mapper.py
+@@ -195,6 +195,10 @@
+                         c = c_base + c_offset
+                         if c < channels:
+                             flat_values.append(int(values[y, x, c]))
++                        elif used_channels > channels:
++                            # A padded channel is transport-only. Preserve the
++                            # original tensor and golden convolution shape.
++                            flat_values.append(0)
+         return flat_values
+ 
+ 
+diff --git a/src/open_eye/conv_mapper.py b/src/open_eye/conv_mapper.py
+--- a/src/open_eye/conv_mapper.py
++++ b/src/open_eye/conv_mapper.py
+@@ -159,7 +159,7 @@
+         "fc_size_reg": 0,
+         "iact_size_x": layer_params.iact_size_x,
+         "iact_size_y": layer_params.iact_size_y,
+-        "iact_size_c": layer_params.channels,
++        "iact_size_c": max(layer_params.channels, layer_params.used_channels),
+         "iact_x_per_cluster": layer_params.iact_x_per_cluster,
+         "iact_x_add_up": layer_params.iact_x_add_up,
+         "psum_x_all_cluster": layer_params.psum_x_all_cluster,

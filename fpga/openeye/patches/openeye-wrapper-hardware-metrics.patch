@@ -1,0 +1,186 @@
+diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
+--- a/src/open_eye/rtl_test_utils.py
++++ b/src/open_eye/rtl_test_utils.py
+@@ -18,6 +18,7 @@
+ architecture and supports both parallel and serial modes of operation.
+ """
+ 
++import json
+ import os
+ import logging
+ import math
+@@ -368,6 +369,151 @@
+ fsm_states_seen = set()
+ fsm_probe_samples = [0]
+ fsm_state_trace = []
++
++
++_DMA_STATE_NAMES = {
++    0: "IDLE",
++    1: "GET_PARAMETERS",
++    2: "GET_ROUTER_CONFIG",
++    3: "GET_IACT",
++    4: "GET_WGHT",
++    5: "GET_BIAS",
++    6: "GET_QUANTIZE",
++    7: "START_CONVERTER",
++    8: "CONVERT_IACT",
++    9: "WAIT_CYCLE",
++    10: "WAIT_FOR_RESULTS",
++    11: "RECEIVE_PSUMS_TO_IACT",
++}
++
++
++def _read_int(signal):
++    """Return an integer signal value, or None while it contains X/Z."""
++    try:
++        return int(signal.value)
++    except (TypeError, ValueError):
++        return None
++
++
++async def monitor_dma_metrics(ptp, dut, oep):
++    """Measure one JSON record per wrapper execution at real handshakes.
++
++    OpenEye registers the host input before the main FSM consumes it.  The
++    relevant input acceptance event is consequently the RTL's own
++    ``enable_dma_i_reg && ready_dma_o`` condition, not the number of words the
++    Python sender attempted to drive.  Output acceptance is the top-level
++    ``enable_dma_o && ready_dma_i`` condition.
++
++    Signals are sampled on the falling edge: they are then stable for the
++    following active edge and the current FSM state is the state that will
++    consume that registered input word.  A record starts at the first accepted
++    input word and ends when an execution state returns to GET_PARAMETERS.
++    """
++    sequence_index = 0
++    active = False
++    previous_state = None
++    metrics = None
++
++    def new_metrics(start_ns):
++        return {
++            "schema_version": 1,
++            "sequence_index": sequence_index,
++            "dma_bitwidth": int(oep.DMA_BITWIDTH),
++            "start_sim_ns": start_ns,
++            "total_cycles": 0,
++            "input_accepted_words": 0,
++            "input_stall_cycles": 0,
++            "output_accepted_words": 0,
++            "output_stall_cycles": 0,
++            "state_cycles": {name: 0 for name in _DMA_STATE_NAMES.values()},
++            "input_accepted_words_by_state": {
++                name: 0 for name in _DMA_STATE_NAMES.values()
++            },
++        }
++
++    def finish_metrics(end_ns):
++        state_cycles = metrics["state_cycles"]
++        metrics["end_sim_ns"] = end_ns
++        metrics["load_cycles"] = sum(
++            state_cycles[_DMA_STATE_NAMES[state]] for state in range(1, 7)
++        )
++        # This is the complete accelerator execution window after input load:
++        # converter setup, iact conversion, MAC wait/result collection, and
++        # optional psum-to-iact write-back.
++        metrics["compute_cycles"] = sum(
++            state_cycles[_DMA_STATE_NAMES[state]] for state in range(7, 12)
++        )
++        metrics["accepted_weight_words"] = metrics[
++            "input_accepted_words_by_state"
++        ]["GET_WGHT"]
++        bytes_per_word = metrics["dma_bitwidth"] // 8
++        metrics["accepted_weight_bytes"] = (
++            metrics["accepted_weight_words"] * bytes_per_word
++        )
++        metrics["input_accepted_bytes"] = (
++            metrics["input_accepted_words"] * bytes_per_word
++        )
++        metrics["output_accepted_bytes"] = (
++            metrics["output_accepted_words"] * bytes_per_word
++        )
++        metrics["stall_cycles"] = (
++            metrics["input_stall_cycles"] + metrics["output_stall_cycles"]
++        )
++        logger.info(
++            "DOMINO_HW_METRICS %s",
++            json.dumps(metrics, sort_keys=True, separators=(",", ":")),
++        )
++
++    while True:
++        await FallingEdge(dut.clk_i)
++        if _read_int(dut.rst_ni) != 1:
++            active = False
++            previous_state = None
++            metrics = None
++            continue
++
++        state = _read_int(dut.fsm_current_state)
++        if state is None:
++            continue
++
++        input_valid = _read_int(dut.enable_dma_i_reg) == 1
++        input_ready = _read_int(dut.ready_dma_o) == 1
++        output_valid = _read_int(dut.enable_dma_o) == 1
++        output_ready = _read_int(dut.ready_dma_i) == 1
++        accepted_input = input_valid and input_ready
++
++        # GET_PARAMETERS immediately after an execution state belongs to the
++        # next wrapper transaction.  Close the previous interval before any
++        # possible next input word is counted.
++        if active and state == 1 and previous_state in (10, 11):
++            finish_metrics(int(cocotb.utils.get_sim_time("ns")))
++            sequence_index += 1
++            active = False
++            metrics = None
++
++        if not active and accepted_input:
++            metrics = new_metrics(int(cocotb.utils.get_sim_time("ns")))
++            active = True
++
++        if active:
++            state_name = _DMA_STATE_NAMES.get(state, "UNKNOWN_%d" % state)
++            metrics["state_cycles"].setdefault(state_name, 0)
++            metrics["input_accepted_words_by_state"].setdefault(state_name, 0)
++            metrics["state_cycles"][state_name] += 1
++            metrics["total_cycles"] += 1
++
++            if accepted_input:
++                metrics["input_accepted_words"] += 1
++                metrics["input_accepted_words_by_state"][state_name] += 1
++            elif input_valid:
++                metrics["input_stall_cycles"] += 1
++
++            if output_valid and output_ready:
++                metrics["output_accepted_words"] += 1
++            elif output_valid:
++                metrics["output_stall_cycles"] += 1
++
++        previous_state = state
+ 
+ 
+ async def trace_pe_iact(ptp, dut, oep, max_lines=2000):
+diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+--- a/test/cocotb_fpga/OpenEye_FPGA_tb.py
++++ b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+@@ -287,6 +287,8 @@
+     if os.environ.get("OPENEYE_PROBE_FSM"):
+         cocotb.start_soon(rtl_test_utils.probe_fsm_states(ptp, dut, oep=openeye_parameter))
+         cocotb.start_soon(rtl_test_utils.monitor_iact_handoff(ptp, dut))
++    if os.environ.get("OPENEYE_HW_METRICS"):
++        cocotb.start_soon(rtl_test_utils.monitor_dma_metrics(ptp, dut, openeye_parameter))
+     if os.environ.get("DUMP_PSUM_BUFFERS") and not os.environ.get("OPENEYE_PROBE_FSM"):
+         cocotb.start_soon(rtl_test_utils.monitor_iact_handoff(ptp, dut))
+     if os.environ.get("TRACE_CONVERTER_GATE"):
+diff --git a/test/cocotb_fpga/test_conv_const.py b/test/cocotb_fpga/test_conv_const.py
+--- a/test/cocotb_fpga/test_conv_const.py
++++ b/test/cocotb_fpga/test_conv_const.py
+@@ -179,6 +179,7 @@
+             # Fail a hang in minutes instead of running to the 15 ms sim
+             # timeout; the stall report names the FSM states and per-PE counts.
+             "OPENEYE_PROBE_FSM":      "1",
++            "OPENEYE_HW_METRICS": os.environ.get("OPENEYE_HW_METRICS", ""),
+             "OPENEYE_FAIL_ON_STALL":  os.environ.get("OPENEYE_FAIL_ON_STALL", "100000"),
+             "CLUSTER_ROWS": str(cluster_rows),
+             "NUM_GLB_IACT": str(num_glb_iact),

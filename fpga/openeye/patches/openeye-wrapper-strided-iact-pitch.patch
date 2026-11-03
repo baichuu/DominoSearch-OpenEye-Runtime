@@ -1,0 +1,15 @@
+diff --git a/src/open_eye/layer_parameters.py b/src/open_eye/layer_parameters.py
+--- a/src/open_eye/layer_parameters.py
++++ b/src/open_eye/layer_parameters.py
+@@ -1030,7 +1030,10 @@
+         self.iact_read_limit_4 = math.ceil(self.iact_size_y/self.strideY) - 1
+         self.iact_read_inc_0 = 1
+         self.iact_read_inc_1 = self.iact_repetitions_per_write * params.NUM_GLB_IACT
+-        self.iact_read_inc_2 = (self.iact_size_y + self.padding_y * 2) * self.iact_read_inc_1
++        # CONVERT_IACT omits the unused stride tail of each channel tile.
++        # The next channel tile must use the same row pitch as storage.
++        self.iact_read_inc_2 = (self.iact_size_y + self.padding_y * 2
++                                - self.strideY + 1) * self.iact_read_inc_1
+         if ((self.Y_Cluster_Packages == 1) & (params.Clusters_X == 1)):
+             self.iact_read_inc_3 = self.channel_div_trans * params.NUM_GLB_PSUM * self.strideX
+         else:

@@ -1,0 +1,43 @@
+diff --git a/src/open_eye/psum_stream_mapper.py b/src/open_eye/psum_stream_mapper.py
+--- a/src/open_eye/psum_stream_mapper.py
++++ b/src/open_eye/psum_stream_mapper.py
+@@ -95,6 +95,9 @@
+             # Parallel mode: indexed by stream_parallel_dict entries
+             self.storage = [[] for _ in range(len(strdic.stream_parallel_dict))]
+ 
++    def serial_bias_order(self):
++        return range(self.layer_params.filters)
++
+     def get_psum_stream(self):
+         """Generate the complete partial sum data stream for the layer.
+ 
+@@ -125,10 +128,10 @@
+             # Generate bias stream for each output position and filter
+             for k in range (self.layer_params.iact_x_line_repetitions) :
+                 for j in range(self.layer_params.iact_size_y) :
+-                    for i in range(self.layer_params.filters) :
++                    for bias_index in self.serial_bias_order():
+                         # Convert bias to two's complement
+                         temp = 0
+-                        bias_bit = gtu.to_twos_complement(self.dram_bias[i], self.params.DATA_PSUM_BITWIDTH)
++                        bias_bit = gtu.to_twos_complement(self.dram_bias[bias_index], self.params.DATA_PSUM_BITWIDTH)
+                         for j in range(words_per_transmission) :
+                             temp = bias_bit + (temp * 2**self.params.DATA_PSUM_BITWIDTH)
+                             # Pack two values into a 40-bit word and replicate
+@@ -268,6 +271,16 @@
+ 
+         """
+         super().__init__(params, layer_params, layer_repetition, dram_layer_content)
++
++    def serial_bias_order(self):
++        order = list(range(self.layer_params.filters))
++        if self.layer_params.different_kernels_per_calculation == 2:
++            # The two simultaneously mapped convolution kernels occupy the
++            # opposite PSUM lanes from their logical filter order. Feed each
++            # pair in hardware-lane order so filter f receives bias[f].
++            for index in range(0, len(order) - 1, 2):
++                order[index], order[index + 1] = order[index + 1], order[index]
++        return order
+ 
+     def write_psum_storage(self, cl_x, cl_y, router, cycle):
+         """Generate partial sum storage data for one cycle in a Conv2D layer.

@@ -1,0 +1,95 @@
+diff --git a/hdl/data_pipeline_wght.v b/hdl/data_pipeline_wght.v
+--- a/hdl/data_pipeline_wght.v
++++ b/hdl/data_pipeline_wght.v
+@@ -257,6 +257,8 @@
+   // data_storage_2: one-cycle pipeline register capturing data_i each cycle
+   //   (regardless of enable_i).  Used as the source for the delayed second
+   //   SPAD write via premade_spad_2_output.
++  reg                                             data_storage_valid;
++  reg                                             last_stored_zero_bridge;
+   reg  signed [           SECOND_SPAD_DATA-1 : 0] data_storage_2;
+ 
+   // temp_acc_overhead: accumulated overhead count since the last
+@@ -323,6 +325,7 @@
+   //   input_words_w[1] = data_i[23:12]  (second sub-word)
+   //   Each sub-word: { overhead_tag[3:0], weight_byte[7:0] }
+   wire        [             SECOND_SPAD_DATA-1:0] input_words_w [0:PARALLEL_MACS-1];
++  wire        [                      DATA_WIDTH-1:0] sanitized_data_i;
+ 
+   // overhead_w: total overhead contribution from both sub-words in the
+   //   current data_i word.
+@@ -383,7 +386,22 @@
+   // Unpack data_i into two 12-bit sub-words.
+   genvar w_gen;
+   for (w_gen = 0; w_gen < PARALLEL_MACS; w_gen = w_gen + 1) begin
+-    assign input_words_w[w_gen] = data_i[((SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)*w_gen)+:(SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)];
++    wire [(SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)-1:0] raw_input_word;
++    assign raw_input_word = data_i[
++      ((SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)*w_gen)
++      +:(SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)
++    ];
++    // Reserved sparse token {offset=all-ones,value=0} means a logical
++    // zero with zero run. Its non-zero transport bits keep the bridge from
++    // being mistaken for serializer padding; the PE SPAD receives 12'b0.
++    assign input_words_w[w_gen] = SPARSITY_EN &&
++      raw_input_word[SECOND_PAYLOAD_WIDTH-1:0] == 0 &&
++      &raw_input_word[SECOND_PAYLOAD_WIDTH+:4]
++      ? 0 : raw_input_word;
++    assign sanitized_data_i[
++      (SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)*w_gen
++      +:(SECOND_PAYLOAD_WIDTH+4*SPARSITY_EN)
++    ] = input_words_w[w_gen];
+   end
+ 
+   // overhead_w: total overhead (non-zero position count) contributed by
+@@ -461,6 +479,8 @@
+       second_spad_en_o      <= 0;
+       data_storage_1        <= 0;
+       data_storage_2        <= 0;
++      data_storage_valid    <= 0;
++      last_stored_zero_bridge <= 0;
+       temp_acc_overhead     <= 0;
+       address_temp_2        <= 0;
+       cycle_counter         <= 0;
+@@ -484,7 +504,9 @@
+       enable_delay      <= enable_i;
+       first_spad_en_o   <= 0;
+       second_spad_en_o  <= 0;
+-      data_storage_2    <= data_i;   // pipeline register: always captures input
++      data_storage_2     <= sanitized_data_i;
++      data_storage_valid <= enable_i && ((data_i != 0) || raw_mode_i);
++      last_stored_zero_bridge <= 0;
+       over_ending       <= 0;
+ 
+       // -----------------------------------------------------------------------
+@@ -508,16 +530,19 @@
+       //     includes the word being written now).
+       //   - When enable_delay is low: reset second_spad_addr_o to 0.
+       // -----------------------------------------------------------------------
+-      if (enable_delay & ((data_storage_2 != 0) | raw_mode_i)) begin
++      if (enable_delay & data_storage_valid) begin
+         first_spad_en_o       <= 1;
+         second_spad_en_o      <= 1;
+         second_spad_data_o    <= premade_spad_2_output;
++        last_stored_zero_bridge <= !raw_mode_i && premade_spad_2_output == 0;
+         if (overhead_new_calc_reg >= filters_w) begin
+           // Filter boundary crossed in previous cycle: step first SPAD address.
+           first_spad_addr_o  <= first_spad_addr_o + 1;
+           first_spad_words_o <= first_spad_addr_o + 2;
+         end
+-        if ((second_spad_data_o != 0) | (raw_mode_i & second_spad_en_o)) begin
++        if ((second_spad_data_o != 0) |
++            (raw_mode_i & second_spad_en_o) |
++            last_stored_zero_bridge) begin
+           // Advance write address when the previous cycle stored a word.
+           // Sparse: non-zero output is the previous-write indicator (zero
+           // words are never stored). Raw: zero words are stored too, so the
+@@ -658,6 +683,8 @@
+       if (compute_delay) begin
+         data_storage_1        <= 0;
+         data_storage_2        <= 0;
++        data_storage_valid    <= 0;
++        last_stored_zero_bridge <= 0;
+         first_spad_en_o       <= 0;
+         first_spad_addr_delay <= 0;
+         first_spad_addr_o     <= 0;

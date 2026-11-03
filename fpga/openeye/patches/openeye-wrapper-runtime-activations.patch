@@ -1,0 +1,35 @@
+diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+--- a/test/cocotb_fpga/OpenEye_FPGA_tb.py
++++ b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+@@ -678,9 +678,20 @@
+             logger.info("layer-0 input activations (first 34): %s", flat[:34])
+         except Exception as exc:
+             logger.info("could not flatten layer-0 input (%s)", type(exc).__name__)
+-    if os.environ.get("OPENEYE_WGHT_PATTERN_JSON") and pattern.get("spatial_tile") is not None:
++    if (os.environ.get("OPENEYE_WGHT_PATTERN_JSON") and pattern.get("spatial_tile") is not None
++            and "runtime_activations" not in pattern):
+         assert os.environ.get("OPENEYE_CONST_IACTS") == "1" and not os.environ.get("OPENEYE_RAMP_IACTS")
+         assert os.environ.get("OPENEYE_ZERO_BIAS") == "1", "Packed convolution requires source zero bias"
++    if os.environ.get("OPENEYE_WGHT_PATTERN_JSON") and "runtime_activations" in pattern:
++        from domino_runtime_activations import validate_activation
++        assert os.environ.get("OPENEYE_ZERO_BIAS") == "1"
++        if pattern.get("layer_type") == "linear":
++            shape = [layer_parameters[model[0].name].iact_size_x, 1, 1]
++            dram.fmap[model[0].name] = validate_activation(pattern["runtime_activations"], shape)[:, 0, 0].tolist()
++        else:
++            shape = [layer_parameters[model[0].name].channels, layer_parameters[model[0].name].iact_size_x,
++                     layer_parameters[model[0].name].iact_size_y]
++            dram.fmap[model[0].name] = validate_activation(pattern["runtime_activations"], shape).tolist()
+     test_amount = 1
+     for _ in range(test_amount) :
+         for layer_number, layer in enumerate(model):
+@@ -744,6 +755,9 @@
+                             assert dram_ok and file_ok, "result check failed: values %s, reference file %s" % (
+                                 "ok" if dram_ok else "differ", "ok" if file_ok else "differs")
+                             if os.environ.get("OPENEYE_WGHT_PATTERN_JSON"):
++                                if pattern.get("layer_type") == "linear" and "runtime_activations" in pattern:
++                                    from domino_runtime_activations import check_runtime_tile
++                                    check_runtime_tile(pattern, dram.fmap[next_layer])
+                                 if pattern.get("spatial_tile") is not None:
+                                     from domino_spatial_tiles import check_and_record_tile
+                                     check_and_record_tile(pattern, dram.fmap[next_layer])

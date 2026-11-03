@@ -1,0 +1,2 @@
+# Separate dependency: existing generic/FC gate environment stays unchanged.
+cryptography==50.0.2

@@ -1,0 +1,362 @@
+diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
+--- a/src/open_eye/rtl_test_utils.py
++++ b/src/open_eye/rtl_test_utils.py
+@@ -998,6 +998,29 @@
+                                     states = [str(cl.pe_cluster.gen_X[x].gen_Y[y].pe.current_state_computing.value)
+                                               for y in range(oep.PEs_Y) for x in range(oep.PEs_X)]
+                                     logger.error("  cluster(%d,%d) PE states by row: %s", cx, cy, states)
++                                    details = []
++                                    for y in range(oep.PEs_Y):
++                                        for x in range(oep.PEs_X):
++                                            pe_probe = cl.pe_cluster.gen_X[x].gen_Y[y].pe
++                                            try:
++                                                sparse = pe_probe.gen_sparse_fsm
++                                                details.append(
++                                                    "c%dr%d:s%s ac%s/%s w%s[%s,%s) aw%s dw%s" % (
++                                                        x, y,
++                                                        str(pe_probe.current_state_computing.value),
++                                                        str(sparse.iact_addr_current.value),
++                                                        str(sparse.iact_addr_count.value),
++                                                        str(pe_probe.wght_data_vec.value),
++                                                        str(sparse.wght_data_start.value),
++                                                        str(sparse.wght_data_end.value),
++                                                        str(pe_probe.first_spad_words_wght.value),
++                                                        str(pe_probe.second_spad_words_wght.value),
++                                                    )
++                                                )
++                                            except Exception as detail_exc:
++                                                details.append("c%dr%d:?%s" % (x, y, type(detail_exc).__name__))
++                                    logger.error("  cluster(%d,%d) sparse PE detail: %s",
++                                                 cx, cy, " ".join(details))
+                                     pe = cl.pe_cluster.gen_X[0].gen_Y[0].pe
+                                     logger.error("  cluster(%d,%d) first PE psum_enable_i=%s psum_select=%s",
+                                                  cx, cy, str(pe.psum_enable_i.value), str(pe.psum_select.value))
+@@ -1022,7 +1045,7 @@
+             previous = state
+         if fail_after:
+             key = [state]
+-            for name in ("fsm_psum_current_state", "fsm_psum_cycle"):
++            for name in ("fsm_psum_current_state", "fsm_psum_cycle", "current_cycle"):
+                 try:
+                     key.append(int(getattr(dut, name).value))
+                 except Exception:
+@@ -1032,9 +1055,9 @@
+                 idle_for += 1
+                 if idle_for == fail_after:
+                     if not reported:
+-                        logger.error("FSM stuck (main state, psum state, psum cycle) = %s", key)
++                        logger.error("FSM progress counters stuck at %s", key)
+                     raise AssertionError(
+-                        "No FSM progress for %d cycles (main state, psum state, psum cycle) = %s; "
++                        "No FSM progress for %d cycles (main state, psum state, psum cycle, compute cycle) = %s; "
+                         "see the stall diagnostics above" % (fail_after, key))
+             else:
+                 progress_key = key
+@@ -1638,15 +1661,10 @@
+         """
+         words = oep.DMA_BITWIDTH // 32
+         dut._log.info("Output Stream started")
+-        used_clusters_per_calc = math.ceil(layer_parameters.iact_size_x / 4) * 4
+-        values_per_transmission = math.ceil(layer_parameters.different_kernels_per_calculation*used_clusters_per_calc/2)
+-        transmissions_per_cycle = (oep.Clusters_Y * oep.Clusters_X * oep.PEs_X)//2
+-        current_cycle = 0
++        coordinates = output_order[layer_repetition]
++        coordinate_index = 0
+         read_data = 1
+         chance = 100
+-        x_repetitions = layer_parameters.iact_x_line_repetitions
+-        x_block_width = layer_parameters.iact_x_add_up // max(x_repetitions, 1)
+-        x_block_base = 0
+         while (dut.enable_dma_o.value == 1):
+             if (read_data):
+                 if(logging.DEBUG >= login_level):
+@@ -1657,52 +1675,24 @@
+                         storage_file.close()
+                         logger.error("Error writing output txt-file")
+                         raise Exception("X detected.")
+-                if (current_cycle < values_per_transmission):
+-                    for i in range(words):
+-                        if(logging.DEBUG >= login_level):
+-                            storage_file.write("f: " + str(f) + " x: " + str(x) + " y: " + str(y) + "\n")
+-                        
+-                        try:
+-                            dram.fmap[dram_string][f][x][y] = int(dut.data_dma_o.value[oep.DATA_PSUM_BITWIDTH*(i+1)-1:oep.DATA_PSUM_BITWIDTH*i])
+-                            if (dram.fmap[dram_string][f][x][y] >= 2**(oep.DATA_PSUM_BITWIDTH-1)):
+-                                dram.fmap[dram_string][f][x][y] = dram.fmap[dram_string][f][x][y] - 2**oep.DATA_PSUM_BITWIDTH
+-                        except:
+-                            pass
+-                        x = x + 1
+-                    if x_repetitions > 1:
+-                        # A row wider than one repetition is read out as
+-                        # x_block_width-pixel blocks: every filter for
+-                        # repetition 0, then every filter for repetition 1...
+-                        # (the psum buffer address is filter + filters * repetition).
+-                        if (x - x_block_base >= x_block_width):
+-                            f = f + 1
+-                            x = x_block_base
+-                            if(f == layer_parameters.filters):
+-                                f = 0
+-                                x_block_base = x_block_base + x_block_width
+-                                x = x_block_base
+-                                if(x_block_base >= layer_parameters.iact_x_add_up):
+-                                    x_block_base = 0
+-                                    x = 0
+-                                    y = y + 1
+-                                    if(y >= layer_parameters.iact_size_y):
+-                                        y = 0
+-                    elif (current_cycle % math.ceil(oep.PEs_X/words) == math.ceil(oep.PEs_X/words) - 1):
+-                        if(x >= layer_parameters.iact_size_x):
+-                            x = 0
+-                            f = f + 1
+-                            if(f == layer_parameters.filters):
+-                                f = 0
+-                                y = y + 1
+-                                if(y >= layer_parameters.iact_size_y):
+-                                    y = 0
+-                else:
+-                    for i in range(words):
+-                        if(logging.DEBUG >= login_level):
+-                            storage_file.write("Empty storage line." + "\n")
+-                current_cycle = current_cycle + 1
+-                if (current_cycle == transmissions_per_cycle):
+-                    current_cycle = 0
++                for i in range(words):
++                    assert coordinate_index < len(coordinates), (
++                        "Convolution DMA emitted more values than the reference layout"
++                    )
++                    x, y, f = coordinates[coordinate_index]
++                    coordinate_index += 1
++                    if(logging.DEBUG >= login_level):
++                        storage_file.write("f: " + str(f) + " x: " + str(x) + " y: " + str(y) + "\n")
++                    if (f < layer_parameters.filters and
++                            x < layer_parameters.iact_size_x and
++                            y < layer_parameters.iact_size_y):
++                        value = int(dut.data_dma_o.value[
++                            oep.DATA_PSUM_BITWIDTH*(i+1)-1:
++                            oep.DATA_PSUM_BITWIDTH*i
++                        ])
++                        if value >= 2**(oep.DATA_PSUM_BITWIDTH-1):
++                            value -= 2**oep.DATA_PSUM_BITWIDTH
++                        dram.fmap[dram_string][f][x][y] = value
+ 
+             if random.randint(1, 100) <= chance:
+                 read_data = 1
+@@ -1713,6 +1703,10 @@
+             await Timer(ptp.clk_cycle, unit=ptp.clk_cycle_unit)
+ 
+         cocotb.start_soon(set_input(ptp,(dut.ready_dma_i), 0))
++        assert coordinate_index == len(coordinates), (
++            f"Convolution DMA emitted {coordinate_index} values, "
++            f"expected {len(coordinates)}"
++        )
+ 
+     if(math.floor(layer_repetition%(layer_parameters.iact_transmissions_pe*layer_parameters.needed_wght_transmissions)) == \
+         (layer_parameters.iact_transmissions_pe*layer_parameters.needed_wght_transmissions-1)):
+@@ -2686,22 +2680,33 @@
+     of those counters says which of the two ended it.
+     """
+     try:
+-        fsm = (dut.OpenEye_Parallel.gen_x[cl_x].gen_y[cl_y].OpenEye_Cluster
+-               .pe_cluster.gen_X[pe_col].gen_Y[pe_row].pe.gen_sparse_fsm)
++        pe = (dut.OpenEye_Parallel.gen_x[cl_x].gen_y[cl_y].OpenEye_Cluster
++              .pe_cluster.gen_X[pe_col].gen_Y[pe_row].pe)
++        fsm = pe.gen_sparse_fsm
+     except Exception as exc:
+         logger.error("trace_pe_calc_loop: PE unreachable (%s)", type(exc).__name__)
+         return
+-    names = ("current_state_computing", "iact_addr_current", "iact_addr_count",
+-             "wght_data_vec", "wght_data_end", "wght_data_start",
+-             "wght_data_SPad_addr", "values_valid", "computing")
++    signals = (
++        ("current_state_computing", pe),
++        ("iact_addr_current", fsm),
++        ("iact_addr_count", fsm),
++        ("wght_data_vec", pe),
++        ("wght_data_end", fsm),
++        ("wght_data_start", fsm),
++        ("wght_data_SPad_addr", pe),
++        ("values_valid", pe),
++        ("computing", pe),
++        ("first_spad_words_wght", pe),
++        ("second_spad_words_wght", pe),
++    )
+     lines = 0
+     prev = None
+     while lines < max_lines:
+         await Timer(ptp.clk_cycle, unit=ptp.clk_cycle_unit)
+         vals = []
+-        for n in names:
++        for name, owner in signals:
+             try:
+-                vals.append(int(getattr(fsm, n).value))
++                vals.append(int(getattr(owner, name).value))
+             except Exception:
+                 vals.append(-1)
+         if vals == prev:
+@@ -2709,7 +2714,9 @@
+         prev = vals
+         if vals[0] == 0 and vals[8] == 0:
+             continue
+-        logger.error("calc %s", " ".join("%s=%d" % (n, v) for n, v in zip(names, vals)))
++        logger.error(
++            "calc %s", " ".join("%s=%d" % (n, v) for (n, _), v in zip(signals, vals))
++        )
+         lines += 1
+ 
+ 
+@@ -3015,16 +3022,14 @@
+                     data = int(memory.data_i.value)
+                     values = [(data >> (slot * params.IACT_WOH_Bitwidth)) & mask for slot in range(2)]
+                 index = counts[key]
+-                #Outcommented non-working assert for NUM_GLB_IACT != 1. Multiple NUM_GLB_IACTs  save in one RAM, while this is always re_en 1. Therefore temporary 0s are stored but rewritten after some cycles.
+-                #For Claude to fix: Better check after writting to the storages than controlling live.
+-                #assert index < expected_count, f"Extra FC write in {key}"
++                assert index < expected_count, f"Extra FC write in {key}"
+                 tile, within_tile = divmod(index, writes_per_run)
+                 pair, virtual_row = divmod(within_tile, pe_rows)
+                 expected_bank = virtual_row % banks
+                 rows_in_bank = (pe_rows + banks - 1 - expected_bank) // banks
+                 expected_addr = (tile * (channels // 2) * rows_in_bank
+                                  + pair * rows_in_bank + virtual_row // banks)
+-                """assert ((bank, address) == (expected_bank, expected_addr)) | (((bank, address) == (0,0) and banks != 1)), (
++                assert (bank, address) == (expected_bank, expected_addr), (
+                     f"FC write destination {key}: bank/address {(bank, address)}, word {index}")
+                 source = ((tile * rows + row) * pe_rows * channels
+                           + pair * pe_rows * 2 + virtual_row * 2)
+@@ -3034,7 +3039,7 @@
+                     f"FC activation write {key} bank={bank} addr={address}: "
+                     f"{values} != input[{source}:{source + 2}]={expected}")
+                 if index % writes_per_run:
+-                    assert cycle == previous[key] + 1, f"FC write bubble in {key}" """
++                    assert cycle == previous[key] + 1, f"FC write bubble in {key}"
+                 previous[key] = cycle
+                 counts[key] += 1
+     logger.info("FC activation RAM writes checked: %s", counts)
+diff --git a/src/open_eye/test_utils_main.py b/src/open_eye/test_utils_main.py
+--- a/src/open_eye/test_utils_main.py
++++ b/src/open_eye/test_utils_main.py
+@@ -604,6 +604,7 @@
+                 les.x_start = 0
+             else :
+                 les.x_start = x_cor
++    return array
+ 
+ def calculate_conv_parallel(params, layer_params, calculated_results, cluster_order, layer_repetition, file_dma_ref):
+     coordinates = []
+@@ -682,8 +683,9 @@
+ def calculate_conv_output_stream_mp(layer_repetition, layer_name, params, layer_params, cluster_order, calculated_results, return_dict):
+     file_dma_ref = gtu.open_or_create_file('demo/layer_' + str(layer_name) + '/dma_stream_ref.txt')
+     if (params.SERIAL):
+-        calculate_conv_serial(params, layer_params, calculated_results, file_dma_ref)
+-        return_dict[layer_repetition] = []
++        return_dict[layer_repetition] = calculate_conv_serial(
++            params, layer_params, calculated_results, file_dma_ref
++        )
+     else:
+         return_dict[layer_repetition] = calculate_conv_parallel(params, layer_params, calculated_results, cluster_order, layer_repetition, file_dma_ref)
+     file_dma_ref.close()
+diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+--- a/test/cocotb_fpga/OpenEye_FPGA_tb.py
++++ b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+@@ -5,6 +5,7 @@
+ 
+ import sys
+ import os
++import json
+ import cocotb
+ import tensorflow as tf
+ from cocotb.clock import Clock
+@@ -146,7 +147,7 @@
+     """
+     global logger
+     await setup_file_logging()
+-    timeout_time = 1500000000
++    timeout_time = int(os.environ.get("OPENEYE_SIM_TIMEOUT_NS", "15000000"))
+     timeout_unit = 'ns'
+ 
+     try:
+@@ -431,6 +432,49 @@
+                         for x in range(len(row)):
+                             row[x] = 1 + c + 5 * f
+         logger.info("OPENEYE_MIX_WEIGHTS: weight[c][f] = 1 + c + 5*f")
++    if os.environ.get("OPENEYE_WGHT_PATTERN_JSON"):
++        pattern_path = Path(os.environ["OPENEYE_WGHT_PATTERN_JSON"]).resolve()
++        pattern = json.loads(pattern_path.read_text(encoding="utf-8"))
++        weights = pattern.get("weights")
++
++        def _shape(value):
++            if not isinstance(value, list):
++                return []
++            child_shapes = {tuple(_shape(item)) for item in value}
++            if len(child_shapes) != 1:
++                raise AssertionError("Ragged OPENEYE_WGHT_PATTERN_JSON tensor")
++            return [len(value), *next(iter(child_shapes))]
++
++        if "Dense" in str(layer_parameters[0].layer_name):
++            expected_shape = [
++                layer_parameters[0].filters,
++                layer_parameters[0].iact_size_x,
++            ]
++        else:
++            expected_shape = [
++                layer_parameters[0].channels,
++                layer_parameters[0].filters,
++                layer_parameters[0].kernel_size[1],
++                layer_parameters[0].kernel_size[0],
++            ]
++        if _shape(weights) != expected_shape:
++            raise AssertionError(
++                f"Weight fixture shape {_shape(weights)} != {expected_shape}"
++            )
++
++        def _validate_int8(value):
++            if isinstance(value, list):
++                for item in value:
++                    _validate_int8(item)
++            elif isinstance(value, bool) or not isinstance(value, int) or not -128 <= value <= 127:
++                raise AssertionError("Weight fixture contains a non-INT8 value")
++
++        _validate_int8(weights)
++        dram.weights[0] = weights
++        logger.info(
++            "OPENEYE_WGHT_PATTERN_JSON: loaded %s from %s",
++            pattern.get("scheme", "unknown"), pattern_path,
++        )
+     if os.environ.get("OPENEYE_RAMP_IACTS"):
+         # Layer-0 activation k becomes k+1, so a PE's stored payloads name the
+         # exact input positions it received. Constant operands can only show
+@@ -443,9 +487,9 @@
+             if os.environ.get("OPENEYE_RAMP_MULT"):
+                 # Deterministic pseudo-random activations, full-rank for fitting.
+                 return ((ctr[0] - 1) * int(os.environ["OPENEYE_RAMP_MULT"])) % 61 + 1
+-            return (ctr[0] - 1) % 100 + 1
++            return ((ctr[0] - 1) % 127) + 1
+         dram.fmap[model[0].name] = _ramp(dram.fmap[model[0].name])
+-        logger.info("OPENEYE_RAMP_IACTS: layer-0 input set to 1..N in flat order")
++        logger.info("OPENEYE_RAMP_IACTS: layer-0 input cycles through 1..127")
+     if os.environ.get("OPENEYE_BIAS_STEP"):
+         # Give each output channel a distinct value after quantization so a
+         # channel permutation cannot pass a constant-weight regression.
+diff --git a/test/cocotb_fpga/test_conv_const.py b/test/cocotb_fpga/test_conv_const.py
+--- a/test/cocotb_fpga/test_conv_const.py
++++ b/test/cocotb_fpga/test_conv_const.py
+@@ -163,6 +163,19 @@
+             "OPENEYE_ASYMMETRIC_KERNEL": "1" if asymmetric_kernel else "",
+             "OPENEYE_RAMP_IACTS": "1" if ramp_iacts else "",
+             "OPENEYE_BIAS_STEP": str(bias_step) if bias_step else "",
++            "OPENEYE_WGHT_PATTERN_JSON": os.environ.get("OPENEYE_WGHT_PATTERN_JSON", ""),
++            "TRACE_PE_CALC": os.environ.get("TRACE_PE_CALC", ""),
++            "TRACE_PE_PSUM": os.environ.get("TRACE_PE_PSUM", ""),
++            "TRACE_PSUM_CAPTURE": os.environ.get("TRACE_PSUM_CAPTURE", ""),
++            "PROBE_PSUM_STREAM": os.environ.get("PROBE_PSUM_STREAM", ""),
++            "DUMP_PSUM_BUFFERS": os.environ.get("DUMP_PSUM_BUFFERS", ""),
++            "DUMP_PSUM_ADDRS": os.environ.get("DUMP_PSUM_ADDRS", ""),
++            "TRACE_PE_IACT": os.environ.get("TRACE_PE_IACT", ""),
++            "TRACE_IACT_LANES": os.environ.get("TRACE_IACT_LANES", ""),
++            "TRACE_CONVERTER": os.environ.get("TRACE_CONVERTER", ""),
++            "TRACE_WGHT_PACKING": os.environ.get("TRACE_WGHT_PACKING", ""),
++            "ONLY_FILES": os.environ.get("OPENEYE_ONLY_FILES", "0"),
++            "OPENEYE_SIM_TIMEOUT_NS": os.environ.get("OPENEYE_SIM_TIMEOUT_NS", "15000000"),
+             # Fail a hang in minutes instead of running to the 15 ms sim
+             # timeout; the stall report names the FSM states and per-PE counts.
+             "OPENEYE_PROBE_FSM":      "1",

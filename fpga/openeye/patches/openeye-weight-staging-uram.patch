@@ -1,0 +1,49 @@
+diff --git a/hdl/OpenEye_FPGA.v b/hdl/OpenEye_FPGA.v
+--- a/hdl/OpenEye_FPGA.v
++++ b/hdl/OpenEye_FPGA.v
+@@ -2962,6 +2962,7 @@
+     // -------------------------------------------------------------------
+     RAM_SP #(
+         .DataWidth(TRANS_BITWIDTH_WGHT * CLUSTERS * NUM_GLB_WGHT),
++        .RAMStyle("ultra"),
+         .AddrWidth(BUFFER_WIDTH_WGHT),
+         .Pipelined(1)
+     ) wght_buffer (
+diff --git a/hdl/RAM_SP.v b/hdl/RAM_SP.v
+--- a/hdl/RAM_SP.v
++++ b/hdl/RAM_SP.v
+@@ -82,6 +82,7 @@
+     parameter AddrWidth = 16,
+     parameter DataWidth = 32,
+     parameter Pipelined = 0,
++    parameter RAMStyle = "auto",
+     // One mask bit per equal-sized subword. With the default value of 1,
+     // writes remain unmasked and wr_mask_i may be left unconnected.
+     parameter WriteMaskWidth = 1
+@@ -133,6 +134,7 @@
+             .AddrWidth          (AddrWidth),
+             .DataWidth          (DataWidth),
+             .Pipelined          (Pipelined),
++            .RAMStyle          (RAMStyle),
+             .WriteMaskWidth     (WriteMaskWidth)
+         ) impl (
+             .clk                (clk),
+diff --git a/hdl/RAM_SP_generic.v b/hdl/RAM_SP_generic.v
+--- a/hdl/RAM_SP_generic.v
++++ b/hdl/RAM_SP_generic.v
+@@ -70,6 +70,7 @@
+     parameter AddrWidth = 12,
+     parameter DataWidth = 8,
+     parameter Pipelined = 0,
++    parameter RAMStyle = "auto",
+     parameter WriteMaskWidth = 1
+ ) (
+     input  wire                 clk,
+@@ -83,6 +84,7 @@
+   localparam Depth = 2 ** AddrWidth;
+   localparam MaskWordWidth = DataWidth / WriteMaskWidth;
+ 
++  (* ram_style = RAMStyle *)
+   reg [DataWidth-1:0] mem    [0:Depth-1];
+   reg [DataWidth-1:0] memout;
+ 

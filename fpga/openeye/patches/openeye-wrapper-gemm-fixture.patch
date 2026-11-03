@@ -1,0 +1,36 @@
+diff --git a/test/cocotb_fpga/test_gemm_layer.py b/test/cocotb_fpga/test_gemm_layer.py
+--- a/test/cocotb_fpga/test_gemm_layer.py
++++ b/test/cocotb_fpga/test_gemm_layer.py
+@@ -104,6 +104,7 @@
+     ]
+     verilog_sources.append(os.path.join(target_dir, "dma_storage.v"))
+ 
++    simulator = os.environ.get("OPENEYE_SIMULATOR", "icarus")
+     cocotb_test.simulator.run(
+         python_search=[test_dir],
+         verilog_sources=verilog_sources,
+@@ -114,7 +115,8 @@
+         defines={"NO_TRACE": "TRUE", "USE_INTERNAL_PARAMS_PE": "TRUE"},
+         force_compile=True,
+         waves=os.environ.get("OPENEYE_FPGA_WAVES") == "1",
+-        simulator="icarus",
++        simulator=simulator,
++        compile_args=["-Wno-fatal", "-Wno-BLKANDNBLK"] if simulator == "verilator" else [],
+         extra_env={
+             "CLOCK_LEN":               str(clk_cycle),
+             "CLOCK_UNIT":              clk_cycle_unit,
+@@ -135,6 +137,14 @@
+             "USE_SPARSE_IACTS":  "0",
+             "USE_SPARSE_WGHTS":  "0",
+             "USE_SPARSE_WEIGHTS": "0",
++            "OPENEYE_WGHT_PATTERN_JSON": os.environ.get("OPENEYE_WGHT_PATTERN_JSON", ""),
++            "OPENEYE_CONST_IACTS": os.environ.get("OPENEYE_CONST_IACTS", ""),
++            "OPENEYE_BIAS_STEP": os.environ.get("OPENEYE_BIAS_STEP", ""),
++            "OPENEYE_ZERO_BIAS": os.environ.get("OPENEYE_ZERO_BIAS", ""),
++            "OPENEYE_SIM_TIMEOUT_NS": os.environ.get("OPENEYE_SIM_TIMEOUT_NS", "15000000"),
++            "OPENEYE_PROBE_FSM": os.environ.get("OPENEYE_PROBE_FSM", "1"),
++            "OPENEYE_FAIL_ON_STALL": os.environ.get("OPENEYE_FAIL_ON_STALL", "100000"),
++            "OPENEYE_HW_METRICS": os.environ.get("OPENEYE_HW_METRICS", ""),
+             "DATAFLOW":     DATAFLOW,
+             "CLUSTER_ROWS": str(CLUSTER_ROWS),
+             "NUM_GLB_IACT": str(NUM_GLB_IACT),

@@ -1,0 +1,8 @@
+# Minimal environment used by the OpenEye RTL regression workflows.
+# Keep these aligned with the measured local OpenEye requirements.lock.txt.
+cocotb==2.1.0
+cocotb-test==0.2.6
+numpy==2.4.6
+pytest==9.1.1
+PyYAML==6.0.3
+tensorflow==2.21.0

@@ -1,0 +1,10 @@
+__pycache__/
+.pytest_cache/
+.venv/
+*.log
+*.bin
+*.npy
+*.npz
+*.aesgcm
+*.conf
+*.b64

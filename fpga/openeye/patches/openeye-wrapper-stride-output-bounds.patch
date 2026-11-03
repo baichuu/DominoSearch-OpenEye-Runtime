@@ -1,0 +1,14 @@
+diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
+--- a/src/open_eye/rtl_test_utils.py
++++ b/src/open_eye/rtl_test_utils.py
+@@ -1835,8 +1835,8 @@
+                     if(logging.DEBUG >= login_level):
+                         storage_file.write("f: " + str(f) + " x: " + str(x) + " y: " + str(y) + "\n")
+                     if (f < layer_parameters.filters and
+-                            x < layer_parameters.iact_size_x and
+-                            y < layer_parameters.iact_size_y):
++                            0 <= x < layer_parameters.psum_size_x and
++                            0 <= y < layer_parameters.psum_size_y):
+                         value = int(dut.data_dma_o.value[
+                             oep.DATA_PSUM_BITWIDTH*(i+1)-1:
+                             oep.DATA_PSUM_BITWIDTH*i

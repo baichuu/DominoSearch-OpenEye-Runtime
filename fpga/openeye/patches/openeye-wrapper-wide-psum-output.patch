@@ -1,0 +1,56 @@
+diff --git a/hdl/OpenEye_FPGA.v b/hdl/OpenEye_FPGA.v
+--- a/hdl/OpenEye_FPGA.v
++++ b/hdl/OpenEye_FPGA.v
+@@ -1411,7 +1411,7 @@
+   reg [ 7:0] iact_channel_counter_reg;  // Registered copy of iact_channels_counter for cross-process use.
+ 
+   // --- PSUM FSM state registers ---
+-  reg [31:0] fsm_psum_cycle;            // Cycle counter within the current PSUM FSM state.
++  reg [23:0] fsm_psum_cycle;            // Cycle counter within the current PSUM FSM state.
+   reg [ 3:0] fsm_psum_last_state;       // Previous PSUM FSM state; used for transition tracing in simulation.
+   reg [ 3:0] fsm_psum_current_state;    // Current PSUM FSM state (one of PSUM_IDLE … SEND_PSUM_TO_IACT).
+   //assign debug_fsm_psum_state = fsm_psum_current_state; // Expose PSUM state on debug port.
+diff --git a/hdl/psum_pipeline.v b/hdl/psum_pipeline.v
+--- a/hdl/psum_pipeline.v
++++ b/hdl/psum_pipeline.v
+@@ -61,7 +61,7 @@
+     input wire [15:0] psum_x_all_cluster,
+     input wire [3:0] iteration_for_kernels,
+     input wire [17:0] needed_cycles,
+-    input wire [15:0] trans_cycles_psum,
++    input wire [23:0] trans_cycles_psum,
+     input wire [7:0] iact_size_y,
+     input wire [11:0] iact_size_x,
+     input wire       fully_connected_layer,
+diff --git a/test/cocotb_fpga/regmap.yaml b/test/cocotb_fpga/regmap.yaml
+--- a/test/cocotb_fpga/regmap.yaml
++++ b/test/cocotb_fpga/regmap.yaml
+@@ -15,6 +15,7 @@
+   - {name: needed_cycles, width: 18}
+   - {name: trans_cycles_iact, width: 24}
+   - {name: trans_cycles_wght, width: 24}
++  # Keep the PSUM pipeline transfer port aligned with the upstream 24-bit stream count.
+   - {name: trans_cycles_psum, width: 24}
+   - {name: iact_glb_writing_cycles, width: 16}
+   - {name: iact_converter_buffer_addr_max_cycles, width: 8}
+@@ -58,7 +59,7 @@
+   - {name: upper_bound, width: 10}
+   - {name: initial_upper_limit, width: 8}
+   - {name: iteration_for_kernels, width: 4}
+-  - {name: fsm_psum_limit, width: 17}
++  - {name: fsm_psum_limit, width: 24}
+   - {name: cluster_per_conv_cycle, width: ceil(log2((int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS))+1))}
+   - {name: iact_converter_max_cycles, width: 8}
+   - {name: iact_x_pos_inc, width: 12}
+diff --git a/hdl/config/regmap.yaml b/hdl/config/regmap.yaml
+--- a/hdl/config/regmap.yaml
++++ b/hdl/config/regmap.yaml
+@@ -58,7 +58,7 @@
+   - {name: upper_bound, width: 10}
+   - {name: initial_upper_limit, width: 8}
+   - {name: iteration_for_kernels, width: 4}
+-  - {name: fsm_psum_limit, width: 17}
++  - {name: fsm_psum_limit, width: 24}
+   - {name: cluster_per_conv_cycle, width: ceil(log2((int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS))+1))}
+   - {name: iact_converter_max_cycles, width: 8}
+   - {name: iact_x_pos_inc, width: 12}

@@ -1,0 +1,15 @@
+diff --git a/hdl/PE.v b/hdl/PE.v
+--- a/hdl/PE.v
++++ b/hdl/PE.v
+@@ -2230,7 +2230,10 @@
+   // two-level SPad structure (address SPad + data SPad) for sparse storage
+   data_pipeline_iact #(
+       .DATA_WIDTH      (TRANS_BITWIDTH_IACT),
+-      .SPARSITY_EN     (SPARSITY_EN),
++      // Bounded runtime kernel3 correctness fallback: retain zero activations
++      // and their position tags. Weight sparsity and the sparse MAC FSM remain
++      // unchanged. Never apply to v6, FC or independent-layer/generic copies.
++      .SPARSITY_EN     (0),
+       .FIRST_SPAD_ADDR (IACT_ADDR_ADDR),
+       .FIRST_SPAD_DATA (IACT_ADDR_DATA),
+       .SECOND_SPAD_ADDR(IACT_DATA_ADDR),

@@ -1,0 +1,264 @@
+diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+--- a/test/cocotb_fpga/OpenEye_FPGA_tb.py
++++ b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+@@ -445,17 +445,17 @@
+                 raise AssertionError("Ragged OPENEYE_WGHT_PATTERN_JSON tensor")
+             return [len(value), *next(iter(child_shapes))]
+ 
+-        if "Dense" in str(layer_parameters[0].layer_name):
++        if "dense" in str(layer_parameters[model[0].name].layer_name):
+             expected_shape = [
+-                layer_parameters[0].filters,
+-                layer_parameters[0].iact_size_x,
++                layer_parameters[model[0].name].filters,
++                layer_parameters[model[0].name].iact_size_x,
+             ]
+         else:
+             expected_shape = [
+-                layer_parameters[0].channels,
+-                layer_parameters[0].filters,
+-                layer_parameters[0].kernel_size[1],
+-                layer_parameters[0].kernel_size[0],
++                layer_parameters[model[0].name].channels,
++                layer_parameters[model[0].name].filters,
++                layer_parameters[model[0].name].kernel_size[1],
++                layer_parameters[model[0].name].kernel_size[0],
+             ]
+         if _shape(weights) != expected_shape:
+             raise AssertionError(
+@@ -470,7 +470,169 @@
+                 raise AssertionError("Weight fixture contains a non-INT8 value")
+ 
+         _validate_int8(weights)
+-        dram.weights[0] = weights
++
++        # ConvWghtStreamMapper's historic zero-skipper can carry a trailing
++        # zero run across a filter boundary. data_pipeline_wght instead needs
++        # every filters-wide hardware region to end on an explicit, complete
++        # two-entry transport word. Repack only fixture-driven regressions;
++        # normal upstream tests retain their original mapper behavior.
++        from open_eye.wght_stream_mapper import ConvWghtStreamMapper
++        from fpga.openeye.nm_offset_adapter import (
++            decode_region,
++            encode_sparse_positions_paired,
++        )
++        if not getattr(ConvWghtStreamMapper, "_domino_pair_safe", False):
++            def _pair_safe_write(self, cl_x, cl_y, router):
++                # The upstream Conv mapper drops zeros while traversing DRAM,
++                # before set_sparse_stream() can see them. Reproduce that
++                # traversal into explicit dense regions so trailing positions
++                # are still available to the pair-safe encoder.
++                import math
++
++                layer_params = self.layer_params
++                params = self.params
++                repetition = self.layer_repetition
++                logical_size = int(layer_params.used_wght_per_PE)
++                region_size = int(layer_params.used_psum_per_PE)
++                if not region_size or logical_size % region_size:
++                    raise AssertionError("Unsupported wrapper weight-region geometry")
++
++                amount_of_used_clusters = math.ceil(
++                    layer_params.used_Y_cluster
++                    * math.ceil(layer_params.iact_x_add_up / layer_params.strideX)
++                    / params.PEs_X
++                )
++                channel = (
++                    (repetition % layer_params.iact_transmissions_pe)
++                    * math.ceil(
++                        layer_params.input_shape[3]
++                        / layer_params.iact_transmissions_pe
++                    )
++                    + math.ceil(
++                        (router % layer_params.kernel_per_pe_cluster)
++                        * layer_params.input_shape[3]
++                        / layer_params.iact_transmissions_pe
++                        / layer_params.kernel_per_pe_cluster
++                    )
++                )
++                channel_offset = channel
++                filters_per_calculation = (
++                    math.ceil(
++                        layer_params.used_wght_per_PE
++                        / layer_params.used_iact_per_PE
++                    )
++                    * layer_params.different_kernels_per_calculation
++                )
++                start_filter = int(
++                    (
++                        math.floor(repetition / layer_params.iact_transmissions_pe)
++                        % layer_params.needed_wght_transmissions
++                    )
++                    * filters_per_calculation
++                )
++                start_filter += (
++                    (params.Clusters_X * cl_y + cl_x)
++                    // amount_of_used_clusters
++                )
++                filters = start_filter
++                kernel_x = 0
++                kernel_row = (
++                    (cl_y % layer_params.used_Y_cluster) * params.PEs_Y
++                    + (router % layer_params.kernel_size[0])
++                )
++                channel_limit = (
++                    1
++                    + int(
++                        layer_params.input_shape[3]
++                        / layer_params.iact_transmissions_pe
++                    )
++                    + (repetition % layer_params.iact_transmissions_pe)
++                    * math.ceil(
++                        layer_params.input_shape[3]
++                        / layer_params.iact_transmissions_pe
++                    )
++                )
++
++                dense_regions = []
++                region = []
++                for _ in range(logical_size):
++                    value = 0
++                    if channel != channel_limit:
++                        try:
++                            value = self.dram_weights[channel][filters][kernel_x][kernel_row]
++                        except (IndexError, TypeError):
++                            value = 0
++                    region.append(int(value))
++                    filters += layer_params.different_kernels_per_calculation
++                    if filters == start_filter + filters_per_calculation:
++                        filters = start_filter
++                        channel += 1
++                        if len(region) != region_size:
++                            raise AssertionError("Unexpected wrapper weight-region width")
++                        dense_regions.append(region)
++                        region = []
++                    if channel == layer_params.used_channels + channel_offset:
++                        channel = channel_offset
++                        kernel_x += 1
++                if region or len(dense_regions) * region_size != logical_size:
++                    raise AssertionError("Incomplete wrapper weight-region traversal")
++
++                encoded = []
++                for region in dense_regions:
++                    retained = [
++                        (position, value)
++                        for position, value in enumerate(region)
++                        if value != 0
++                    ]
++                    region_encoding = encode_sparse_positions_paired(
++                        retained,
++                        region_size,
++                        offset_bits=4,
++                        emit_region_end_bridge=True,
++                        pad_incomplete_word=True,
++                    )
++                    if decode_region(region_encoding) != tuple(region):
++                        raise AssertionError("Pair-safe wrapper region did not round trip")
++                    for entry in region_encoding.pairs:
++                        transport_offset = entry.zero_run
++                        if entry.synthetic_bridge and entry.value == 0:
++                            if entry.zero_run == 0:
++                                transport_offset = 15
++                            elif entry.zero_run == 15:
++                                raise AssertionError("Reserved sentinel code is ambiguous")
++                        encoded.append([entry.value, transport_offset])
++
++                if os.environ.get("TRACE_WGHT_PACKING"):
++                    logger.info(
++                        "PAIR_SAFE_WEIGHT repetition=%d cluster=(%d,%d) router=%d "
++                        "regions=%d encoded_tokens=%d encoded_words=%d",
++                        repetition, cl_x, cl_y, router, len(dense_regions),
++                        len(encoded), len(encoded) // 2,
++                    )
++
++                capacity = int(params.Wghts_per_PE)
++                if len(encoded) > capacity:
++                    raise AssertionError("Pair-safe wrapper stream exceeds PE storage")
++                encoded.extend([[0, 0] for _ in range(capacity - len(encoded))])
++                return [encoded[index:index + 2] for index in range(0, len(encoded), 2)]
++
++            original_complete_stream = ConvWghtStreamMapper.create_complete_wght_stream
++            def _pair_safe_complete_stream(self, spad_storage):
++                stream = original_complete_stream(self, spad_storage)
++                # Transport padding is not a logical zero region. In r3,
++                # 14 real address regions already nearly fill the 16-entry
++                # weight address SPAD; fake bridge padding wraps it.
++                if os.environ.get("OPENEYE_ARCHITECTURE") == "full-layer-r3":
++                    return stream
++                return [0xF00F00 if word == 0 else word for word in stream]
++
++            ConvWghtStreamMapper.write_wght_data_storage = _pair_safe_write
++            ConvWghtStreamMapper.create_complete_wght_stream = _pair_safe_complete_stream
++            ConvWghtStreamMapper._domino_pair_safe = True
++            ConvWghtStreamMapper._domino_pair_safe_padding_word = (
++                0 if os.environ.get("OPENEYE_ARCHITECTURE") == "full-layer-r3" else 0xF00F00)
++
++        dram.weights[model[0].name] = weights
+         logger.info(
+             "OPENEYE_WGHT_PATTERN_JSON: loaded %s from %s",
+             pattern.get("scheme", "unknown"), pattern_path,
+diff --git a/src/open_eye/wght_stream_mapper.py b/src/open_eye/wght_stream_mapper.py
+--- a/src/open_eye/wght_stream_mapper.py
++++ b/src/open_eye/wght_stream_mapper.py
+@@ -130,7 +130,7 @@
+ 
+         if (self.params.SERIAL):
+             # === SERIAL MODE: Multiple transmissions over time ===
+-            wght_stream = []
++            wght_tiles = []
+ 
+             # Iterate through each weight transmission cycle
+             for layer_repetition_loop in range(self.layer_params.needed_wght_transmissions):
+@@ -151,8 +151,32 @@
+                                     temp_storage[cl_x][cl_y][router] = self.set_sparse_stream(spad)
+                                 else:
+                                     temp_storage[cl_x][cl_y][router] = spad
+-                # Convert SPAD data to transmission bitstream and append to overall stream
+-                wght_stream.extend(self.create_complete_wght_stream(temp_storage))
++                # Keep each weight tile separate until every tile's encoded
++                # length is known. The FPGA wrapper has one scalar tile
++                # length, so every tile must use the same stride in the
++                # staging RAM even when sparse occupancy differs.
++                wght_tiles.append(self.create_complete_wght_stream(temp_storage))
++
++            lanes = self.params.Clusters * self.params.NUM_GLB_WGHT
++            if any(len(tile) % lanes for tile in wght_tiles):
++                raise AssertionError("Weight tile is not PE-lane aligned")
++            tile_words = max((len(tile) // lanes for tile in wght_tiles), default=0)
++            wght_stream = []
++            for tile in wght_tiles:
++                words = len(tile) // lanes
++                wght_stream.extend(tile)
++                padding_word = getattr(self, "_domino_pair_safe_padding_word", 0)
++                wght_stream.extend(
++                    [padding_word] * ((tile_words - words) * lanes)
++                )
++
++            # write_working_parameters() runs after this method. Publish the
++            # actual fixed sparse-tile stride so used_wght_per_PE tells RTL
++            # how many packed words to read before advancing to the next tile.
++            if tile_words:
++                self.layer_params.used_wght_per_PE = (
++                    tile_words * self.params.PARALLEL_MACS
++                )
+         else:
+             # === PARALLEL MODE: Single transmission with all data ===
+             for cl_x in range(self.params.Clusters_X):
+@@ -436,7 +460,16 @@
+             stream = []
+ 
+             # Interleave words from different PEs for serial transmission
+-            for word in range(len(temp_stream[0][0][0])):
++            max_words = max(
++                (
++                    len(temp_stream[cl_x][cl_y][router])
++                    for cl_x in range(params.Clusters_X)
++                    for cl_y in range(params.Clusters_Y)
++                    for router in range(params.NUM_GLB_WGHT)
++                ),
++                default=0,
++            )
++            for word in range(max_words):
+                 for cl_x in range(params.Clusters_X):
+                     for cl_y in range(params.Clusters_Y):
+                         for router in range(params.NUM_GLB_WGHT):
