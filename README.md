@@ -76,3 +76,11 @@ Publication redaction was also checked against preserved historical evidence:
 672 prefix real JUnit plus 256/512 layer4 convolution JUnit and all counter
 totals remain accepted by the unchanged evidence verifiers. Those historical
 checks validate publication behavior, not a new public network execution.
+
+The initial public run `41623326842` failed its focused gates before accepted
+hardware-counter records. The export omitted `nm_offset_adapter.py`, imported
+from the generated pair-safe patch rather than a normal source AST. The helper
+and its exhaustive adapter controls are now included; a new export check scans
+generated patch imports. Updated unit suite: **320 PASS, 6 opt-in RTL skipped**.
+The failed run remains failed evidence; only a fresh same-commit gated run can
+establish new public RTL/network correctness.

@@ -2,12 +2,25 @@
 
 import ast
 import json
+import re
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = "93f0e82bd6aa0cddee73c9db115884e8ebdd7329"
+
+
+def test_python_helpers_imported_by_generated_patches_are_exported():
+    """Generated Python imports are dependencies even without a source AST edge."""
+    required = set()
+    for patch in (ROOT/'fpga/openeye/patches').glob('*.patch'):
+        required.update(re.findall(r'from fpga\.openeye\.(\w+) import',patch.read_text()))
+    assert 'nm_offset_adapter' in required
+    for module in required:
+        path=ROOT/'fpga/openeye'/(module+'.py')
+        assert path.is_file(),f'Missing generated-runtime helper: {module}'
+        compile(path.read_bytes(),str(path),'exec')
 
 
 def test_manual_standard_runners_and_public_source_only():

@@ -61,7 +61,9 @@
     "tests/test_openeye_wrapper_metrics.py": "241d67abb558d1379690089b8391e6133a8d6af3ebfc207648d5ab83246e1dc7",
     "tests/test_packed_layer_fixture.py": "49bda6dc7e0d64ae024a52b92d79175819b8758b227d2377846219080e0155b1",
     "tests/test_runtime_activations.py": "ac2efb50978d198c8face66a2683f66ad6e63ee2f5d50a16cdb54266d82f1f4c",
-    "tests/test_spatial_layer_tiles.py": "c738b4afab95ac84e796a127ed0d9fbff14799e2fca363b80ebd350f7ff8a38a"
+    "tests/test_spatial_layer_tiles.py": "c738b4afab95ac84e796a127ed0d9fbff14799e2fca363b80ebd350f7ff8a38a",
+    "fpga/openeye/nm_offset_adapter.py": "973fef99654f7b9a678d288517146454ecfb646076230190d3ba88b6bc4de78b",
+    "tests/test_openeye_nm_adapter.py": "8e6b12f01318a27cc7d0543ff30c28d6d4cda6c1a703b77ed84eeb0c0d11874b"
   },
   "export_file_sha256": {
     ".gitattributes": "660b1e75691dc6186ec10b09adac3b284ea0179c4e30c764a3e643d9cbb5ec53",
@@ -69,12 +71,13 @@
     ".gitignore": "1d35f6dbdf257f40e40432aa83bb6f53f0fde7ee30a956ad32e8b8d15116f525",
     "ACTION_PINS.json": "c7576cf128c644a5af9311e688e84030e9e40a854a5cbc0fe5ab61095725e9a2",
     "AGENTS.md": "53fce055fae68d4d58b84e80b82988e63e7f9e936d1e993063df35b336466702",
-    "README.md": "b805d97223534ab8b92a6b753b4b456d73d4428bd0b3ef2f272f731be6ed7030",
+    "README.md": "a41d3dc3af4df945aa1b4af3085fd06c89cf7cb52c572da97fe05eb62d5d7c1f",
     "fpga/openeye/compat/sitecustomize.py": "e2259e3fd7710485dcce44beda52c898d48baf3d2d1a8343b7190da987fc375e",
     "fpga/openeye/export_network_measurements.py": "74c0fa53cc254bce3286a4c464e6d96f5461fa060d7731a409431303187a98a1",
     "fpga/openeye/network_actions_preflight.py": "eb14f45f6fea0ae91ca4a48bc55c4810e01dc0921899dcd36fca8703e1e4d524",
     "fpga/openeye/network_checkpoint.py": "d8e8800e70926ab77d7583b5a4dde83e040d01a43b9bd2e1ff2c68e7a90ab5c4",
     "fpga/openeye/network_layer_tiles.py": "62a3d49fddc0d8d4f4576d2bfc63ffbf683e02d331328caf9854c48d38a93493",
+    "fpga/openeye/nm_offset_adapter.py": "973fef99654f7b9a678d288517146454ecfb646076230190d3ba88b6bc4de78b",
     "fpga/openeye/openeye_evidence_bundle.py": "00c8cdae9fee0b399045d8c8204fbabbacf33eb55d99a8b4ef153d0a964aa266",
     "fpga/openeye/patches/openeye-conv-bias-kernel-order.patch": "1ec6c6d8e4f8f3b073fe5cb20143369a872c1f2d276bc7b989994a775c52cb2a",
     "fpga/openeye/patches/openeye-iact-counter-ownership.patch": "64ba8367f2e55fa327fc13e62bf9a8d4a2945807888686efb2f64a4509e929ea",
@@ -125,10 +128,11 @@
     "tests/test_network_evidence.py": "b0c5385f93dfd703970ad7c7f25a56017d8ae1e18976af5b2096b5ab80d960b3",
     "tests/test_network_runtime.py": "bd898353ea7b24082cbf7f44e33d461453c0acd0b55f1abe08966e8ac6294afb",
     "tests/test_network_stage_resume.py": "eb5e95d7024f03ace13fdc35ff72e88e5b9285c7426149febfd63a2463f55121",
+    "tests/test_openeye_nm_adapter.py": "8e6b12f01318a27cc7d0543ff30c28d6d4cda6c1a703b77ed84eeb0c0d11874b",
     "tests/test_openeye_wrapper_metrics.py": "241d67abb558d1379690089b8391e6133a8d6af3ebfc207648d5ab83246e1dc7",
     "tests/test_packed_layer_fixture.py": "49bda6dc7e0d64ae024a52b92d79175819b8758b227d2377846219080e0155b1",
     "tests/test_public_evidence.py": "5754580303c98a7f0bf0471615bf5280c804f17ec2969215222817dce28594a0",
-    "tests/test_public_runtime_export.py": "86a80cc494c91aebb7ac5bf7a2b6ccda6e8bcfbf7e37abc3e67e9e0433603681",
+    "tests/test_public_runtime_export.py": "7af1abae1dca26edceaff7af4ec51c809148d6ea3ee1e515a2e5aa2c5c2c9a05",
     "tests/test_runtime_activations.py": "ac2efb50978d198c8face66a2683f66ad6e63ee2f5d50a16cdb54266d82f1f4c",
     "tests/test_spatial_layer_tiles.py": "c738b4afab95ac84e796a127ed0d9fbff14799e2fca363b80ebd350f7ff8a38a"
   },
@@ -137,6 +141,7 @@
     "runtime checkpoint identity binds public repository",
     "public-only allowlisted/redacted evidence copy; full golden checks unchanged",
     "workflow-specific tests adapted to reduced entry points",
-    "official actions commit SHAs pinned"
+    "official actions commit SHAs pinned",
+    "include nm_offset_adapter imported by generated pair-safe patch; add generated-import export gate"
   ]
 }
