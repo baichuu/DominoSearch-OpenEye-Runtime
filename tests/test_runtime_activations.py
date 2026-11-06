@@ -65,6 +65,30 @@ def test_residual_alignment_add_before_clip():
         residual_add(a, 1e20, b, 1, 1)
 
 
+@pytest.mark.parametrize('relu', [False, True])
+def test_host_timing_preserves_signed_rounding_and_clamp(relu):
+    values = np.asarray([[[-1024, -17, -3, -1, 0, 1, 3, 17, 1024]],
+                         [[1024, 17, 3, 1, 0, -1, -3, -17, -1024]]])
+    timings = []
+    expected = affine_fixed(values, [-3, 2], [7, -5], shift=2, relu=relu)
+    actual = affine_fixed(values, [-3, 2], [7, -5], shift=2, relu=relu, timings=timings)
+    assert np.array_equal(actual, expected)
+    assert [r['operation'] for r in timings] == [
+        'batchnorm_affine_requantization', 'relu_int8_clamp_cast' if relu else 'int8_clamp_cast']
+    assert all(r['wall_ns'] >= 0 and r['elements'] == values.size and r['calls'] == 1 for r in timings)
+    # Timing metadata must remain scalar and must not contain coefficients/tensors.
+    assert all(set(r) == {'operation', 'elements', 'calls', 'wall_ns'} for r in timings)
+    a = np.clip(values, -127, 127)
+    timings = []
+    assert np.array_equal(residual_add(a, 2, -a, 1, .5, timings=timings),
+                          residual_add(a, 2, -a, 1, .5))
+    assert [r['operation'] for r in timings] == ['residual_align_add_requantization', 'relu_int8_clamp_cast']
+    timings = []
+    with pytest.raises(ValueError, match='overflow'):
+        affine_fixed(values, [1 << 61, 1 << 61], [0, 0], timings=timings)
+    assert not timings
+
+
 def test_wrong_dut_cannot_publish_output(tmp_path):
     tile = {'index': 0, 'filter_start': 0, 'filter_stop': 8,
             'x': {'input_start': 0, 'crop_start': 0},

@@ -8,9 +8,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 
 import numpy as np
+
+
+def measured_host_call(records, operation, elements, function, *args, **kwargs):
+    """Time one actual host call; never convert wall time into FPGA cycles."""
+    if records is None:
+        return function(*args, **kwargs)
+    started = time.perf_counter_ns()
+    result = function(*args, **kwargs)
+    elapsed = time.perf_counter_ns() - started
+    records.append(dict(operation=operation, elements=int(elements), calls=1,
+                        wall_ns=elapsed))
+    return result
 
 
 def integer_array(values, shape=None, low=-127, high=127):
@@ -122,7 +135,7 @@ def round_shift_even(values, shift):
     return np.where(a < 0, -q, q)
 
 
-def affine_fixed(values, multiplier, bias, shift=24, relu=False):
+def affine_fixed(values, multiplier, bias, shift=24, relu=False, timings=None):
     a = integer_array(values, low=-(1 << 31), high=(1 << 31) - 1)
     m = integer_array(multiplier, [a.shape[0]], -(1 << 62), (1 << 62) - 1)
     b = integer_array(bias, [a.shape[0]], -(1 << 62), (1 << 62) - 1)
@@ -130,11 +143,13 @@ def affine_fixed(values, multiplier, bias, shift=24, relu=False):
     bound = int(np.abs(a).max()) * int(np.abs(m).max()) + int(np.abs(b).max())
     if bound >= (1 << 63):
         raise ValueError("Fixed-point affine would overflow INT64")
-    q = round_shift_even(a * m[:, None, None] + b[:, None, None], shift)
-    return np.clip(q, 0 if relu else -127, 127).astype(np.int64)
+    q = measured_host_call(timings, 'batchnorm_affine_requantization', a.size,
+        lambda: round_shift_even(a * m[:, None, None] + b[:, None, None], shift))
+    return measured_host_call(timings, 'relu_int8_clamp_cast' if relu else 'int8_clamp_cast', a.size,
+        lambda: np.clip(q, 0 if relu else -127, 127).astype(np.int64))
 
 
-def residual_add(main, main_scale, skip, skip_scale, output_scale, shift=24):
+def residual_add(main, main_scale, skip, skip_scale, output_scale, shift=24, timings=None):
     if not isinstance(shift, int) or not 0 <= shift <= 40:
         raise ValueError("Invalid fixed-point shift")
     a = integer_array(main)
@@ -149,5 +164,7 @@ def residual_add(main, main_scale, skip, skip_scale, output_scale, shift=24):
     if max(coefficients) * 254 >= (1 << 63):
         raise ValueError("Residual alignment would overflow INT64")
     # Add in a wide accumulator and round once; never clamp branches first.
-    total = a * coefficients[0] + b * coefficients[1]
-    return np.clip(round_shift_even(total, shift), 0, 127).astype(np.int64)
+    q = measured_host_call(timings, 'residual_align_add_requantization', a.size,
+        lambda: round_shift_even(a * coefficients[0] + b * coefficients[1], shift))
+    return measured_host_call(timings, 'relu_int8_clamp_cast', a.size,
+        lambda: np.clip(q, 0, 127).astype(np.int64))

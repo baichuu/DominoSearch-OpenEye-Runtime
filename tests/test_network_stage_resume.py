@@ -199,9 +199,12 @@ def test_pending_skip_and_signed_actual_survive_authenticated_roundtrip(
 
 @pytest.mark.parametrize("prefix,start", [("layer4.0", 6), ("layer4.1", 9)])
 def test_stage_split_matches_unsplit_residual_and_preserves_actual_original(
-    prefix, start
+    prefix, start, monkeypatch
 ):
     """Distinct synthetic actual branches catch lost/overwritten skip across jobs."""
+    import itertools
+    ticks = itertools.count(step=100)
+    monkeypatch.setattr('fpga.openeye.runtime_activations.time.perf_counter_ns', lambda: next(ticks))
     original = np.full((256, 14, 14) if start == 6 else (512, 7, 7), 7, dtype=np.int64)
 
     def engine(calls):

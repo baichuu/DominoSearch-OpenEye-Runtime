@@ -9,17 +9,17 @@ diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA
 +        assert os.environ.get("OPENEYE_CONST_IACTS") == "1" and not os.environ.get("OPENEYE_RAMP_IACTS")
 +        assert os.environ.get("OPENEYE_ZERO_BIAS") == "1", "Packed convolution requires source zero bias"
      test_amount = 1
-     for _ in range(test_amount) :
-         for layer_number, layer in enumerate(model):
-@@ -740,6 +743,11 @@
-                                                             'demo/layer_' + str(layer_parameters[layer_name].layer_name) + '/output.txt')
-                             assert dram_ok and file_ok, "result check failed: values %s, reference file %s" % (
-                                 "ok" if dram_ok else "differ", "ok" if file_ok else "differs")
-+                            if os.environ.get("OPENEYE_WGHT_PATTERN_JSON"):
-+                                if pattern.get("spatial_tile") is not None:
-+                                    from domino_spatial_tiles import check_and_record_tile
-+                                    check_and_record_tile(pattern, dram.fmap[next_layer])
-+                                    logger.info("DOMINO_GLOBAL_TILE_PASS %s", pattern["spatial_tile"]["index"])
-                         else :
-                             next_layer = rel_layers["Next_Layer"][layer_name][0]
-                             await cocotb.start_soon(rtl_test_utils.await_ready_signal(ptp, dut))
+     branch_begin = []
+     branch_max = []
+@@ -759,6 +762,11 @@
+                                                         'demo/layer_' + str(layer_parameters[layer_name].layer_name) + '/output.txt')
+                         assert dram_ok and file_ok, "result check failed: values %s, reference file %s" % (
+                             "ok" if dram_ok else "differ", "ok" if file_ok else "differs")
++                        if os.environ.get("OPENEYE_WGHT_PATTERN_JSON"):
++                            if pattern.get("spatial_tile") is not None:
++                                from domino_spatial_tiles import check_and_record_tile
++                                check_and_record_tile(pattern, dram.fmap[next_layer][0])
++                                logger.info("DOMINO_GLOBAL_TILE_PASS %s", pattern["spatial_tile"]["index"])
+                     else :
+                         await cocotb.start_soon(rtl_test_utils.await_ready_signal(ptp, dut))
+                         time_printer.timestamp("Ready signal detected. Start new stream " , logger)

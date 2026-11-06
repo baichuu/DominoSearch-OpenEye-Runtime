@@ -52,7 +52,7 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
                          "see the stall diagnostics above" % (fail_after, key))
              else:
                  progress_key = key
-@@ -1638,15 +1661,10 @@
+@@ -1637,15 +1660,10 @@
          """
          words = oep.DMA_BITWIDTH // 32
          dut._log.info("Output Stream started")
@@ -70,7 +70,7 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
          while (dut.enable_dma_o.value == 1):
              if (read_data):
                  if(logging.DEBUG >= login_level):
-@@ -1657,52 +1675,24 @@
+@@ -1656,53 +1674,24 @@
                          storage_file.close()
                          logger.error("Error writing output txt-file")
                          raise Exception("X detected.")
@@ -80,9 +80,9 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
 -                            storage_file.write("f: " + str(f) + " x: " + str(x) + " y: " + str(y) + "\n")
 -                        
 -                        try:
--                            dram.fmap[dram_string][f][x][y] = int(dut.data_dma_o.value[oep.DATA_PSUM_BITWIDTH*(i+1)-1:oep.DATA_PSUM_BITWIDTH*i])
--                            if (dram.fmap[dram_string][f][x][y] >= 2**(oep.DATA_PSUM_BITWIDTH-1)):
--                                dram.fmap[dram_string][f][x][y] = dram.fmap[dram_string][f][x][y] - 2**oep.DATA_PSUM_BITWIDTH
+-                            dram.fmap[dram_string][0][f][x][y] = int(dut.data_dma_o.value[oep.DATA_PSUM_BITWIDTH*(i+1)-1:oep.DATA_PSUM_BITWIDTH*i])
+-                            if (dram.fmap[dram_string][0][f][x][y] >= 2**(oep.DATA_PSUM_BITWIDTH-1)):
+-                                dram.fmap[dram_string][0][f][x][y] = dram.fmap[dram_string][0][f][x][y] - 2**oep.DATA_PSUM_BITWIDTH
 -                        except:
 -                            pass
 -                        x = x + 1
@@ -104,7 +104,8 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
 -                                    y = y + 1
 -                                    if(y >= layer_parameters.iact_size_y):
 -                                        y = 0
--                    elif (current_cycle % math.ceil(oep.PEs_X/words) == math.ceil(oep.PEs_X/words) - 1):
+-                        #elif (current_cycle % math.ceil(oep.PEs_X/words) == math.ceil(oep.PEs_X/words) - 1):
+-                    else:
 -                        if(x >= layer_parameters.iact_size_x):
 -                            x = 0
 -                            f = f + 1
@@ -137,11 +138,11 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
 +                        ])
 +                        if value >= 2**(oep.DATA_PSUM_BITWIDTH-1):
 +                            value -= 2**oep.DATA_PSUM_BITWIDTH
-+                        dram.fmap[dram_string][f][x][y] = value
++                        dram.fmap[dram_string][0][f][x][y] = value
  
              if random.randint(1, 100) <= chance:
                  read_data = 1
-@@ -1713,6 +1703,10 @@
+@@ -1713,6 +1702,10 @@
              await Timer(ptp.clk_cycle, unit=ptp.clk_cycle_unit)
  
          cocotb.start_soon(set_input(ptp,(dut.ready_dma_i), 0))
@@ -152,7 +153,7 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
  
      if(math.floor(layer_repetition%(layer_parameters.iact_transmissions_pe*layer_parameters.needed_wght_transmissions)) == \
          (layer_parameters.iact_transmissions_pe*layer_parameters.needed_wght_transmissions-1)):
-@@ -2686,22 +2680,33 @@
+@@ -2686,22 +2679,33 @@
      of those counters says which of the two ended it.
      """
      try:
@@ -193,7 +194,7 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
              except Exception:
                  vals.append(-1)
          if vals == prev:
-@@ -2709,7 +2714,9 @@
+@@ -2709,7 +2713,9 @@
          prev = vals
          if vals[0] == 0 and vals[8] == 0:
              continue
@@ -204,7 +205,7 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
          lines += 1
  
  
-@@ -3015,16 +3022,14 @@
+@@ -3015,16 +3021,14 @@
                      data = int(memory.data_i.value)
                      values = [(data >> (slot * params.IACT_WOH_Bitwidth)) & mask for slot in range(2)]
                  index = counts[key]
@@ -223,7 +224,7 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
                      f"FC write destination {key}: bank/address {(bank, address)}, word {index}")
                  source = ((tile * rows + row) * pe_rows * channels
                            + pair * pe_rows * 2 + virtual_row * 2)
-@@ -3034,7 +3039,7 @@
+@@ -3034,7 +3038,7 @@
                      f"FC activation write {key} bank={bank} addr={address}: "
                      f"{values} != input[{source}:{source + 2}]={expected}")
                  if index % writes_per_run:
@@ -235,7 +236,18 @@ diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
 diff --git a/src/open_eye/test_utils_main.py b/src/open_eye/test_utils_main.py
 --- a/src/open_eye/test_utils_main.py
 +++ b/src/open_eye/test_utils_main.py
-@@ -604,6 +604,7 @@
+@@ -585,7 +585,9 @@
+             y_cor = les.y_start
+             for cl_y in range(params.Clusters_Y) :
+                 for cl_x in range(params.Clusters_X) :
+-                    if (x_cor >= layer_params.psum_size_x+layer_params.add_up) :
++                    # Coordinates are in output units; add_up is input padding
++                    # (psum_add_up * strideX) and misassigns filters for stride2.
++                    if (x_cor >= layer_params.psum_size_x+layer_params.psum_add_up) :
+                         if (kernel_counter < layer_params.different_kernels_per_calculation - 1) :
+                             kernel_counter = kernel_counter + 1
+                             x_cor = les.x_start
+@@ -612,6 +614,7 @@
                  les.x_start = 0
              else :
                  les.x_start = x_cor
@@ -243,7 +255,7 @@ diff --git a/src/open_eye/test_utils_main.py b/src/open_eye/test_utils_main.py
  
  def calculate_conv_parallel(params, layer_params, calculated_results, cluster_order, layer_repetition, file_dma_ref):
      coordinates = []
-@@ -682,8 +683,9 @@
+@@ -690,8 +693,9 @@
  def calculate_conv_output_stream_mp(layer_repetition, layer_name, params, layer_params, cluster_order, calculated_results, return_dict):
      file_dma_ref = gtu.open_or_create_file('demo/layer_' + str(layer_name) + '/dma_stream_ref.txt')
      if (params.SERIAL):
@@ -331,7 +343,7 @@ diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA
                  return ((ctr[0] - 1) * int(os.environ["OPENEYE_RAMP_MULT"])) % 61 + 1
 -            return (ctr[0] - 1) % 100 + 1
 +            return ((ctr[0] - 1) % 127) + 1
-         dram.fmap[model[0].name] = _ramp(dram.fmap[model[0].name])
+         dram.fmap[model[0].name][0] = _ramp(dram.fmap[model[0].name][0])
 -        logger.info("OPENEYE_RAMP_IACTS: layer-0 input set to 1..N in flat order")
 +        logger.info("OPENEYE_RAMP_IACTS: layer-0 input cycles through 1..127")
      if os.environ.get("OPENEYE_BIAS_STEP"):
@@ -360,3 +372,15 @@ diff --git a/test/cocotb_fpga/test_conv_const.py b/test/cocotb_fpga/test_conv_co
              # Fail a hang in minutes instead of running to the 15 ms sim
              # timeout; the stall report names the FSM states and per-PE counts.
              "OPENEYE_PROBE_FSM":      "1",
+diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+--- a/test/cocotb_fpga/OpenEye_FPGA_tb.py
++++ b/test/cocotb_fpga/OpenEye_FPGA_tb.py
+@@ -511,7 +511,7 @@
+                             not os.environ.get("OPENEYE_SKIP_FC_WRITE_CHECK") and
+                             "dense" in str(layer_parameters[layer_name].layer_name)):
+                         fc_write_check = cocotb.start_soon(rtl_test_utils.check_fc_activation_writes(
+-                            dut, openeye_parameter, layer_parameters[layer_name], dram.fmap[layer_name]))
++                            dut, openeye_parameter, layer_parameters[layer_name], dram.fmap[layer_name][0]))
+                     await cocotb.start_soon(rtl_test_utils.send_stream(ptp, dut, stream[layer_repetition], openeye_parameter, layer_parameters[layer_name], layer_repetition))
+                     logger.info("Stream is sent.")
+ 

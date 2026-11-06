@@ -3,7 +3,7 @@
 
 set -Eeuo pipefail
 
-readonly EXPECTED_OPENEYE_COMMIT='93f0e82bd6aa0cddee73c9db115884e8ebdd7329'
+readonly EXPECTED_OPENEYE_COMMIT='36395ddc530e106f06c50025a4069dd097688d8d'
 readonly FIXED_IACT_RAM_CELLS=8
 readonly FIXED_IACT_BUFFER_WIDTH=12
 readonly FIXED_WGHT_BUFFER_WIDTH=13
@@ -14,6 +14,7 @@ readonly REPOSITORY_ROOT
 readonly IACT_COUNTER_PATCH="$SCRIPT_DIR/patches/openeye-iact-counter-ownership.patch"
 readonly PE_WGHT_COUNT_WIDTH_PATCH="$SCRIPT_DIR/patches/openeye-pe-weight-spad-count-width.patch"
 readonly ODD_CHANNEL_PATCH="$SCRIPT_DIR/patches/openeye-serial-odd-channel-padding.patch"
+readonly ACTIVATION_PACKING_PATCH="$SCRIPT_DIR/patches/openeye-activation-packing-compat.patch"
 readonly SHARED_STATE_PATCH="$SCRIPT_DIR/patches/openeye-layer-mapper-shared-state.patch"
 readonly CONV_BIAS_ORDER_PATCH="$SCRIPT_DIR/patches/openeye-conv-bias-kernel-order.patch"
 readonly TALL_CONV_SYNC_PATCH="$SCRIPT_DIR/patches/openeye-tall-conv-sync.patch"
@@ -219,7 +220,7 @@ fi
 [[ -x $openeye_root/.venv/bin/python ]] ||
   die "OpenEye virtual environment not found: $openeye_root/.venv"
 [[ ! -e $output_dir ]] || die "OUTPUT_DIR already exists: $output_dir"
-for patch_file in "$ODD_CHANNEL_PATCH" "$SHARED_STATE_PATCH" "$IACT_COUNTER_PATCH" "$CONV_BIAS_ORDER_PATCH" "$TALL_CONV_SYNC_PATCH" "$OUTPUT_ORDER_PATCH" "$PAIR_SAFE_WGHT_PATCH" "$ZERO_BRIDGE_PATCH" "$HARDWARE_METRICS_PATCH" "$PROGRESS_WATCHDOG_PATCH" "$ACTUAL_CANDIDATE_BIAS_PATCH" "$WIDE_PSUM_OUTPUT_PATCH" "$WIDE_IACT_BUFFER_COUNT_PATCH" "$WEIGHT_STAGING_URAM_PATCH" "$SELECT_SIMULATOR_PATCH" "$GEMM_FIXTURE_PATCH"; do
+for patch_file in "$ACTIVATION_PACKING_PATCH" "$ODD_CHANNEL_PATCH" "$SHARED_STATE_PATCH" "$IACT_COUNTER_PATCH" "$CONV_BIAS_ORDER_PATCH" "$TALL_CONV_SYNC_PATCH" "$OUTPUT_ORDER_PATCH" "$PAIR_SAFE_WGHT_PATCH" "$ZERO_BRIDGE_PATCH" "$HARDWARE_METRICS_PATCH" "$PROGRESS_WATCHDOG_PATCH" "$ACTUAL_CANDIDATE_BIAS_PATCH" "$WIDE_PSUM_OUTPUT_PATCH" "$WIDE_IACT_BUFFER_COUNT_PATCH" "$WEIGHT_STAGING_URAM_PATCH" "$SELECT_SIMULATOR_PATCH" "$GEMM_FIXTURE_PATCH"; do
   [[ -s $patch_file ]] || die "Patch not found: $patch_file"
 done
 [[ -s $METRICS_SUMMARIZER ]] || die "Metrics summarizer not found: $METRICS_SUMMARIZER"
@@ -227,6 +228,12 @@ done
 [[ -s $FIXTURE_TOOL ]] || die "Fixture tool not found: $FIXTURE_TOOL"
 [[ -s $PACKED_LAYER_FIXTURE_TOOL ]] ||
   die "Packed-layer fixture tool not found: $PACKED_LAYER_FIXTURE_TOOL"
+
+# Bind new upstream widths consistently in Python, generated regmap and RTL.
+export CYCLE_WIDTH=32
+export LIMIT_SIZE_IACT=18
+export LIMIT_SIZE_WGHT=12
+export LIMIT_SIZE_PSUM=12
 
 actual_commit=$(git -C "$openeye_root" rev-parse HEAD)
 [[ $actual_commit == "$EXPECTED_OPENEYE_COMMIT" ]] ||
@@ -255,6 +262,7 @@ mkdir -p -- "$input_snapshot_dir/patches"
 cp -- "$IACT_COUNTER_PATCH" "$input_snapshot_dir/patches/iact-counter.patch"
 cp -- "$PE_WGHT_COUNT_WIDTH_PATCH" "$input_snapshot_dir/patches/pe-weight-count-width.patch"
 cp -- "$ODD_CHANNEL_PATCH" "$input_snapshot_dir/patches/serial-odd-channel-padding.patch"
+cp -- "$ACTIVATION_PACKING_PATCH" "$input_snapshot_dir/patches/activation-packing-compat.patch"
 cp -- "$SHARED_STATE_PATCH" "$input_snapshot_dir/patches/layer-mapper-shared-state.patch"
 cp -- "$CONV_BIAS_ORDER_PATCH" "$input_snapshot_dir/patches/conv-bias-order.patch"
 cp -- "$TALL_CONV_SYNC_PATCH" "$input_snapshot_dir/patches/tall-conv-sync.patch"
@@ -386,13 +394,14 @@ print("\t".join((m["source_layer"], m["layer_type"], m["scheme"], geometry)))' \
     )
 fi
 
-tar --exclude=.venv --exclude=test/.temp -cf - \
-  -C "$openeye_root" . | tar -xf - -C "$work_dir"
+# Archive the verified commit, excluding mutable Git metadata and ignored run files.
+git -C "$openeye_root" archive "$actual_commit" | tar -xf - -C "$work_dir"
 ln -sfn "$openeye_root/.venv" "$work_dir/.venv"
 
 patch --batch --forward --fuzz=0 -p1 -d "$work_dir" <"$tall_conv_sync_patch_snapshot"
 git -C "$work_dir" apply "$zero_bridge_patch_snapshot"
 git -C "$work_dir" apply "$iact_counter_patch_snapshot"
+git -C "$work_dir" apply "$input_snapshot_dir/patches/activation-packing-compat.patch"
 git -C "$work_dir" apply "$conv_bias_order_patch_snapshot"
 git -C "$work_dir" apply "$output_order_patch_snapshot"
 git -C "$work_dir" apply "$pair_safe_weight_patch_snapshot"
@@ -878,6 +887,7 @@ fi
   printf 'iact_write_alignment_patch_sha256=%s\n' "$iact_write_alignment_patch_sha256"
   printf 'pe_weight_count_width_patch_sha256=%s\n' "$pe_wght_count_width_patch_sha256"
   printf 'conv_bias_order_patch_sha256=%s\n' "$conv_bias_order_patch_sha256"
+  printf 'activation_packing_patch_sha256=%s\n' "$(sha256sum "$input_snapshot_dir/patches/activation-packing-compat.patch" | awk '{print $1}')"
   printf 'serial_odd_channel_padding_patch_sha256=%s\n' "$(sha256sum "$input_snapshot_dir/patches/serial-odd-channel-padding.patch" | awk '{print $1}')"
   printf 'layer_mapper_shared_state_patch_sha256=%s\n' "$(sha256sum "$input_snapshot_dir/patches/layer-mapper-shared-state.patch" | awk '{print $1}')"
   printf 'packed_weight_count_patch_sha256=%s\n' "not-applied-upstream"

@@ -101,3 +101,15 @@ def test_publish_requires_disjoint_new_copy(tmp_path):
     output.mkdir()
     with pytest.raises(ValueError):
         publish(source, output)
+
+
+def test_host_operation_metadata_survives_publication_without_tensor_fields(tmp_path):
+    source = tmp_path / 'private'
+    source.mkdir()
+    metadata = dict(host_operations=dict(
+        forward_path=[dict(operation='batchnorm_affine_requantization', elements=128, calls=1, wall_ns=1234)],
+        oracle_path=[dict(operation='relu_int8_clamp_cast', elements=128, calls=1, wall_ns=5678)]))
+    (source / 'network-verification.json').write_text(json.dumps(metadata))
+    output = tmp_path / 'public'
+    publish(source, output)
+    assert json.loads((output / 'network-verification.json').read_text()) == metadata

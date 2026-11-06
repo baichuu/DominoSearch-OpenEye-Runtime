@@ -52,7 +52,11 @@ concurrency:
   group: openeye-full-layer-${{ github.ref }}-${{ inputs.scope == 'hybrid-network-resumable' && 'network-fc-smoke' || inputs.scope }}
   cancel-in-progress: false
 env:
-  OPENEYE_PIN: 93f0e82bd6aa0cddee73c9db115884e8ebdd7329
+  OPENEYE_PIN: 36395ddc530e106f06c50025a4069dd097688d8d
+  CYCLE_WIDTH: "32"
+  LIMIT_SIZE_IACT: "18"
+  LIMIT_SIZE_WGHT: "12"
+  LIMIT_SIZE_PSUM: "12"
   PYTHON_VERSION: '3.11'
   VERILATOR_VERSION: '5.052'
   BUNDLE_REMOTE: domino-drive:DominoSearch-artifacts/deployment/packed-v1-3060cf7-20260824

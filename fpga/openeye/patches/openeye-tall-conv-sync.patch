@@ -1,7 +1,7 @@
 diff --git a/hdl/psum_pipeline.v b/hdl/psum_pipeline.v
 --- a/hdl/psum_pipeline.v
 +++ b/hdl/psum_pipeline.v
-@@ -428,10 +428,19 @@
+@@ -430,10 +430,19 @@
  
          WAIT_TO_SEND_READY_SIGNAL: begin
            results_ready = 0;
@@ -23,7 +23,7 @@ diff --git a/hdl/psum_pipeline.v b/hdl/psum_pipeline.v
            psum_buffer_en_r <= {(((NUM_GLB_PSUM*CLUSTERS)+1)/2){1'd1}};
            if (fsm_psum_cycle == 16) begin
              fsm_psum_cycle         <= 0;
-@@ -479,7 +488,6 @@
+@@ -481,7 +490,6 @@
                end
              end
              if (fsm_psum_cycle > {{10{1'd0}},filters}) begin
@@ -31,7 +31,7 @@ diff --git a/hdl/psum_pipeline.v b/hdl/psum_pipeline.v
                psum_buffer_en_r       <= 0;
                fsm_psum_last_state    <= CALCULATE_PSUM;
                fsm_psum_current_state <= PSUM_GET_RESULTS;
-@@ -539,6 +547,7 @@
+@@ -541,6 +549,7 @@
              fsm_psum_cycle      <= fsm_psum_cycle + 1;
            end
            if (fsm_psum_cycle == filters) begin

@@ -165,6 +165,40 @@ def test_report_exports_measured_counters_without_focused_or_host_counts(downsam
     assert 'not network latency' in (tmp_path/'tables/report.md').read_text()
 
 
+def test_host_timings_are_separate_and_prefix_not_counted_twice(downsample_evidence, tmp_path):
+    from fpga.openeye.export_network_measurements import collect, write_report
+    path = downsample_evidence / 'layer2-0-conv1-stage-verification.json'
+    stage = load_json(path)
+    operation = dict(operation='relu_int8_clamp_cast', elements=128, calls=1, wall_ns=2000)
+    stage['host_operations'] = dict(forward_path=[operation], oracle_path=[dict(operation, wall_ns=9000)])
+    write(path, stage)
+    report_path = downsample_evidence / 'network-verification.json'
+    report = load_json(report_path)
+    report['stages'] = [stage if s['layer'] == stage['layer'] else s for s in report['stages']]
+    report['blocks'][-1]['host_operations'] = dict(forward_path=[operation])
+    write(report_path, report)
+    seal(downsample_evidence)
+    result = collect(downsample_evidence, COMMIT)
+    assert result['totals']['total_cycles'] == 640
+    actual = next(r for r in result['host_operation_totals'] if r['phase'] == 'forward_path')
+    reference = next(r for r in result['host_operation_totals'] if r['phase'] == 'oracle_path')
+    assert (actual['calls'], actual['wall_ns']) == (2, 4000)
+    assert (reference['calls'], reference['wall_ns']) == (1, 9000)
+    assert result['host_timing_coverage']['measured_stage_sites'] == 1
+    assert collect(downsample_evidence, COMMIT)['host_operation_totals'] == result['host_operation_totals']
+    write_report(result, tmp_path / 'report')
+    assert (tmp_path / 'report/host_operations.csv').exists()
+
+
+@pytest.mark.parametrize('change', [dict(wall_ns=-1), dict(wall_ns=float('nan')),
+    dict(wall_ns=True), dict(elements=0), dict(operation='private-payload')])
+def test_host_timings_reject_invalid_scalar_records(change):
+    from fpga.openeye.export_network_measurements import host_timing_rows
+    record = dict(operation='relu_int8_clamp_cast', elements=128, calls=1, wall_ns=2000)
+    with pytest.raises(ValueError, match='host operation timing'):
+        host_timing_rows('layer2.0.conv1', dict(forward_path=[dict(record, **change)]), 'openeye-rtl')
+
+
 def test_report_cumulative_prefix_is_counted_once(downsample_evidence):
     from fpga.openeye.export_network_measurements import collect
     root = downsample_evidence
@@ -353,3 +387,18 @@ def test_manual_workflow_cannot_start_network_without_both_gates():
     assert verify_index < execute_index
     assert '--mode downsample-block' in steps[verify_index]['run']
     assert '--mode fc-smoke' in steps[verify_index]['run']
+
+
+@pytest.mark.parametrize('change', ['missing', 'wrong'])
+def test_activation_packing_patch_identity_is_required(downsample_evidence, change):
+    root = downsample_evidence / 'layer2-0-conv1'
+    path = root / 'regression_manifest.txt'
+    lines = path.read_text().splitlines()
+    key = 'activation_packing_patch_sha256='
+    lines = [line for line in lines if not line.startswith(key)]
+    if change == 'wrong':
+        lines.append(key + 'c' * 64)
+    path.write_text('\n'.join(lines) + '\n')
+    seal(downsample_evidence)
+    with pytest.raises(ValueError, match='activation_packing_patch_sha256'):
+        verify(downsample_evidence, 'downsample-block', COMMIT)

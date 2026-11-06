@@ -23,7 +23,33 @@ GAPS = [
     'No INT8 dataset accuracy evaluation; FP32 pruning accuracy remains separate.',
     'No r3 post-route timing/resources, power, or board measurement; do not reuse v6 results.',
     'Host stem, BN/requantization, partial accumulation, residual/ReLU, GAP and FC bias remain host operations.',
+    'Host operation timings are single-call wall time; reference/preparation are separate from the actual path. Fused ReLU/INT8 clamp is not standalone ReLU delay or FPGA timing.',
 ]
+
+HOST_OPERATIONS = frozenset(('batchnorm_affine_fp64', 'relu_fp64',
+    'batchnorm_coefficient_preparation', 'batchnorm_affine_requantization',
+    'residual_align_add_requantization', 'relu_int8_clamp_cast', 'int8_clamp_cast'))
+
+
+def host_timing_rows(site, groups, backend):
+    """Export scalar timings only; missing historical instrumentation stays absent."""
+    rows = []
+    if not isinstance(groups, dict) or set(groups) - {'forward_path', 'oracle_path', 'coefficient_setup', 'source_stem'}:
+        raise ValueError('Invalid host timing phases')
+    for phase, records in groups.items():
+        if not isinstance(records, list):
+            raise ValueError('Invalid host timing records')
+        for r in records:
+            if (not isinstance(r, dict) or set(r) != {'operation', 'elements', 'calls', 'wall_ns'}
+                    or r['operation'] not in HOST_OPERATIONS
+                    or any(type(r[k]) is not int or r[k] < (0 if k == 'wall_ns' else 1)
+                           for k in ('elements', 'calls', 'wall_ns'))):
+                raise ValueError('Invalid host operation timing')
+            rows.append(dict(site=site, phase=phase, source_backend=backend, **r,
+                wall_seconds=r['wall_ns'] / 1e9,
+                ns_per_element=r['wall_ns'] / r['elements'],
+                timing_scope='single host invocation; not FPGA latency'))
+    return rows
 
 
 def collect(root, commit):
@@ -54,7 +80,7 @@ def collect(root, commit):
         raise ValueError('Duplicate or unknown RTL stage')
     if not final.exists() and declared != expected[:len(declared)]:
         raise ValueError('Segment is not a complete ordered prefix')
-    rows, states = [], []
+    rows, states, host_rows, host_environments = [], [], [], {}
     for name in expected:
         row = dict(layer=name, status='NO_COMPLETE_RTL_EVIDENCE')
         if name not in declared:
@@ -62,6 +88,9 @@ def collect(root, commit):
             continue
         slug = name.replace('.', '-')
         stage = load_json(root / (slug + '-stage-verification.json'))
+        host_rows.extend(host_timing_rows(name, stage.get('host_operations', {}), stage['backend']))
+        if 'host_timing_environment' in stage:
+            host_environments[name] = stage['host_timing_environment']
         source_path = root / (slug + '-fixture-manifest.json')
         source = load_json(source_path)
         provenance = parse_key_values(root / slug / 'regression_manifest.txt')
@@ -106,6 +135,19 @@ def collect(root, commit):
                 input_accepted_words=sum(r['input_accepted_words_by_state'].get(state, 0) for r in records)))
         rows.append(row)
     measured = [r for r in rows if r['status'] == 'VERIFIED_RTL']
+    blocks = report.get('blocks', report.get('block_host_operations', []))
+    if len({b['block'] for b in blocks}) != len(blocks):
+        raise ValueError('Duplicate block host timings')
+    if 'block_host_operations' in report and [b['block'] for b in blocks] != report.get('completed_blocks', []):
+        raise ValueError('Block host timings differ from complete prefix')
+    for block in blocks:
+        host_rows.extend(host_timing_rows(block['block'], block.get('host_operations', {}), 'host-residual'))
+    host_totals = []
+    for phase, operation in sorted({(r['phase'], r['operation']) for r in host_rows}):
+        group = [r for r in host_rows if (r['phase'], r['operation']) == (phase, operation)]
+        host_totals.append(dict(phase=phase, operation=operation,
+            calls=sum(r['calls'] for r in group), elements=sum(r['elements'] for r in group),
+            wall_ns=sum(r['wall_ns'] for r in group)))
     return dict(schema_version=1, result='AUDITED_MEASUREMENTS', domino_commit=commit,
                 exporter_sha256=sha256(Path(__file__)),
                 openeye_commit=report['openeye_commit'], evidence_sha256=sha256(root / 'SHA256SUMS'),
@@ -115,13 +157,20 @@ def collect(root, commit):
                 unique_rtl_junit=sum(r['rtl_junit'] for r in measured),
                 aggregation='one evidence root; cumulative prefix counted once; gates/focused controls excluded',
                 totals={k:sum(r[k] for r in measured) for k in COUNTERS},
-                layers=rows, state_counters=states, limitations=GAPS)
+                layers=rows, state_counters=states, host_operations=host_rows,
+                host_operation_totals=host_totals,
+                host_timing_environments=host_environments,
+                host_timing_coverage=dict(measured_stage_sites=len({r['site'] for r in host_rows if r['site'] in expected}),
+                    completed_rtl_stage_sites=len(measured),
+                    note='missing instrumentation is unmeasured, never zero; cumulative prefix counted once'),
+                limitations=GAPS)
 
 
 def write_report(result, output):
     output.mkdir(parents=True, exist_ok=False)
     (output / 'measurements.json').write_text(json.dumps(result, indent=2) + '\n')
-    for filename, records in [('layers.csv', result.get('layers', [])), ('states.csv', result.get('state_counters', []))]:
+    for filename, records in [('layers.csv', result.get('layers', [])), ('states.csv', result.get('state_counters', [])),
+                              ('host_operations.csv', result.get('host_operations', []))]:
         columns = list(dict.fromkeys(k for row in records for k in row))
         with (output / filename).open('w', newline='') as stream:
             writer = csv.DictWriter(stream, fieldnames=columns)
@@ -134,6 +183,14 @@ def write_report(result, output):
                   '| --- | --- | --- | ---: | ---: | ---: | ---: |']
         for r in result['layers']:
             lines.append('| ' + ' | '.join(str(r.get(k, '—')) for k in ('layer','status','scheme','total_cycles','accepted_weight_bytes','input_accepted_bytes','output_accepted_bytes')) + ' |')
+        lines += ['', '## Host BatchNorm / activation timings', '',
+                  'Single-call wall time. Fused ReLU includes INT8 clamp/cast; no FPGA delay is inferred.', '',
+                  '| Path | Operation | Calls | Elements | Total ms |',
+                  '| --- | --- | ---: | ---: | ---: |']
+        for r in result.get('host_operation_totals', []):
+            lines.append(f"| {r['phase']} | {r['operation']} | {r['calls']} | {r['elements']} | {r['wall_ns'] / 1e6:.6f} |")
+        if not result.get('host_operation_totals'):
+            lines.append('| — | UNMEASURED in this evidence | — | — | — |')
     else:
         lines += ['Evidence audit failed; no measurement totals certified.', '', result['error']]
     lines += ['', '## Limits', ''] + ['- ' + s for s in GAPS]

@@ -1,51 +1,16 @@
 diff --git a/hdl/OpenEye_FPGA.v b/hdl/OpenEye_FPGA.v
 --- a/hdl/OpenEye_FPGA.v
 +++ b/hdl/OpenEye_FPGA.v
-@@ -182,7 +182,7 @@
+@@ -186,7 +186,7 @@
+     parameter ROUTER_MODES_WGHT = 1,
      parameter ROUTER_MODES_PSUM = 3,
  
- 
--    parameter BUFFER_WIDTH_IACT_STREAM_CONSTRUCTOR = BUFFER_WIDTH_IACT + 2,
+-    parameter BUFFER_WIDTH_IACT_STREAM_CONSTRUCTOR = BUFFER_WIDTH_IACT + 5 - $clog2(CLUSTERS),
 +    parameter BUFFER_WIDTH_IACT_STREAM_CONSTRUCTOR = 16,
      parameter real FSM_IACT_RTR_CCLS_A = (CLUSTERS * NUM_GLB_IACT),
      parameter real FSM_IACT_RTR_CCLS_B = DMA_BITWIDTH / ROUTER_MODES_IACT,
      parameter real FSM_IACT_RTR_CCLS = FSM_IACT_RTR_CCLS_A / FSM_IACT_RTR_CCLS_B,
-@@ -396,7 +396,7 @@
-   wire [TRANS_IACT_WIDTH-1:0]       trans_cycles_iact; // Register for deciding, how many cycles are needed for transmissions for iact
-   wire [TRANS_WGHT_WIDTH-1:0]       trans_cycles_wght; // Register for deciding, how many cycles are needed for transmissions for wght
-   wire [TRANS_PSUM_WIDTH-1:0]       trans_cycles_psum; // Register for deciding, how many cycles are needed for transmissions for psum
--  wire [15:0]                       iact_glb_writing_cycles;
-+  wire [17:0]                       iact_glb_writing_cycles;
-   reg [$clog2(CLUSTER_COLUMNS)-1:0] fsm_x_cl;          // Current cluster column being processed during weight loading.
-   reg [$clog2(CLUSTER_ROWS)-1:0] fsm_y_cl;             // Current cluster row being processed during weight loading.
-   reg [((NUM_GLB_IACT > 1) ? $clog2(NUM_GLB_IACT) : 1)-1:0] fsm_iact_r; // Current iact GLB index during iact loading.
-@@ -421,17 +421,17 @@
-   wire [LIMIT_SIZE_IACT-1:0] iact_read_limit_2;
-   wire [LIMIT_SIZE_IACT-1:0] iact_read_limit_3;
-   wire [LIMIT_SIZE_IACT-1:0] iact_read_limit_4;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_read_inc_0;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_read_inc_1;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_read_inc_2;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_read_inc_3;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_read_inc_4;
-+  wire [15:0] iact_read_inc_0;
-+  wire [15:0] iact_read_inc_1;
-+  wire [15:0] iact_read_inc_2;
-+  wire [15:0] iact_read_inc_3;
-+  wire [15:0] iact_read_inc_4;
-   wire [LIMIT_SIZE_IACT-1:0] iact_write_limit_0;
-   wire [LIMIT_SIZE_IACT-1:0] iact_write_limit_1;
-   wire [LIMIT_SIZE_IACT-1:0] iact_write_limit_2;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_write_inc_0;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_write_inc_1;
--  wire [BUFFER_WIDTH_IACT-1:0] iact_write_inc_2;
-+  wire [15:0] iact_write_inc_0;
-+  wire [15:0] iact_write_inc_1;
-+  wire [15:0] iact_write_inc_2;
-   wire [ 9:0] pagu_wght_limit;
-   wire [4-1:0]psum_pagu_cs_limit_0;
-   wire [4-1:0]psum_pagu_cs_limit_1;
-@@ -600,7 +600,7 @@
+@@ -596,7 +596,7 @@
    // Iact Converter Timing Counters
    // -----------------------------------------------------------------------
    wire [7:0] iact_converter_max_cycles;             // Total y-lines to process including kernel overlap = iact_size_y + kernel_size - 1 (set in GET_WGHT).
@@ -102,64 +67,44 @@ diff --git a/hdl/iact_stream_constructor.v b/hdl/iact_stream_constructor.v
 diff --git a/test/cocotb_fpga/regmap.yaml b/test/cocotb_fpga/regmap.yaml
 --- a/test/cocotb_fpga/regmap.yaml
 +++ b/test/cocotb_fpga/regmap.yaml
-@@ -17,7 +17,7 @@
-   - {name: trans_cycles_wght, width: 24}
-   # Keep the PSUM pipeline transfer port aligned with the upstream 24-bit stream count.
-   - {name: trans_cycles_psum, width: 24}
--  - {name: iact_glb_writing_cycles, width: 16}
-+  - {name: iact_glb_writing_cycles, width: 18}
-   - {name: iact_converter_buffer_addr_max_cycles, width: 8}
-   - {name: fc_size_reg, width: 14}
-   - {name: iact_size_x, width: 12}
-@@ -50,7 +50,7 @@
+@@ -49,7 +49,7 @@
    - {name: iact_channels_per_pe, width: 4}
    - {name: channel_div_trans, width: 2}
    - {name: send_data_out, width: 1}
--  - {name: needed_iact_buffer_words, width: int(BUFFER_WIDTH_IACT)}
+-  - {name: needed_iact_buffer_words, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
 +  - {name: needed_iact_buffer_words, width: 16}
    - {name: iact_x_line_repetitions_reg, width: 8}
    - {name: buffer_cycles_for_x_iact, width: 8}
    - {name: start_param_array, width: int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)}
-@@ -63,29 +63,29 @@
+@@ -62,7 +62,7 @@
    - {name: cluster_per_conv_cycle, width: ceil(log2((int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS))+1))}
    - {name: iact_converter_max_cycles, width: 8}
    - {name: iact_x_pos_inc, width: 12}
--  - {name: iact_buffer_words_per_write, width: int(BUFFER_WIDTH_IACT)}
+-  - {name: iact_buffer_words_per_write, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
 +  - {name: iact_buffer_words_per_write, width: 16}
    - {name: iact_words_per_compute, width: 8}
    - {name: pooling_mode, width: 1}
    - {name: gemm_mode, width: 1}
-   - {name: used_wght_per_PE, width: int(BUFFER_WIDTH_WGHT)}
-   - {name: psum_output_words, width: 24}
-   - {name: overhang_discrepancy, width: 4}
--  - {name: iact_read_limit_0, width: 12}
--  - {name: iact_read_limit_1, width: 12}
--  - {name: iact_read_limit_2, width: 12}
--  - {name: iact_read_limit_3, width: 12}
--  - {name: iact_read_limit_4, width: 12}
--  - {name: iact_read_inc_0, width: int(BUFFER_WIDTH_IACT)}
--  - {name: iact_read_inc_1, width: int(BUFFER_WIDTH_IACT)}
--  - {name: iact_read_inc_2, width: int(BUFFER_WIDTH_IACT)}
--  - {name: iact_read_inc_3, width: int(BUFFER_WIDTH_IACT)}
--  - {name: iact_read_inc_4, width: int(BUFFER_WIDTH_IACT)}
-+  - {name: iact_read_limit_0, width: 18}
-+  - {name: iact_read_limit_1, width: 18}
-+  - {name: iact_read_limit_2, width: 18}
-+  - {name: iact_read_limit_3, width: 18}
-+  - {name: iact_read_limit_4, width: 18}
+@@ -74,17 +74,17 @@
+   - {name: iact_read_limit_2, width: int(LIMIT_SIZE_IACT)}
+   - {name: iact_read_limit_3, width: int(LIMIT_SIZE_IACT)}
+   - {name: iact_read_limit_4, width: int(LIMIT_SIZE_IACT)}
+-  - {name: iact_read_inc_0, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
+-  - {name: iact_read_inc_1, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
+-  - {name: iact_read_inc_2, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
+-  - {name: iact_read_inc_3, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
+-  - {name: iact_read_inc_4, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
 +  - {name: iact_read_inc_0, width: 16}
 +  - {name: iact_read_inc_1, width: 16}
 +  - {name: iact_read_inc_2, width: 16}
 +  - {name: iact_read_inc_3, width: 16}
 +  - {name: iact_read_inc_4, width: 16}
-   - {name: iact_write_limit_0, width: 18}
--  - {name: iact_write_limit_1, width: 12}
--  - {name: iact_write_limit_2, width: 12}
--  - {name: iact_write_inc_0, width: int(BUFFER_WIDTH_IACT)}
--  - {name: iact_write_inc_1, width: int(BUFFER_WIDTH_IACT)}
--  - {name: iact_write_inc_2, width: int(BUFFER_WIDTH_IACT)}
-+  - {name: iact_write_limit_1, width: 18}
-+  - {name: iact_write_limit_2, width: 18}
+   - {name: iact_write_limit_0, width: int(LIMIT_SIZE_IACT)}
+   - {name: iact_write_limit_1, width: int(LIMIT_SIZE_IACT)}
+   - {name: iact_write_limit_2, width: int(LIMIT_SIZE_IACT)}
+-  - {name: iact_write_inc_0, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
+-  - {name: iact_write_inc_1, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
+-  - {name: iact_write_inc_2, width: int(BUFFER_WIDTH_IACT) + 5 - ceil(log2(int(CLUSTER_ROWS)*int(CLUSTER_COLUMNS)))}
 +  - {name: iact_write_inc_0, width: 16}
 +  - {name: iact_write_inc_1, width: 16}
 +  - {name: iact_write_inc_2, width: 16}

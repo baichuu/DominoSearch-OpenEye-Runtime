@@ -1,7 +1,7 @@
 diff --git a/src/open_eye/rtl_test_utils.py b/src/open_eye/rtl_test_utils.py
 --- a/src/open_eye/rtl_test_utils.py
 +++ b/src/open_eye/rtl_test_utils.py
-@@ -1835,8 +1835,8 @@
+@@ -1834,8 +1834,8 @@
                      if(logging.DEBUG >= login_level):
                          storage_file.write("f: " + str(f) + " x: " + str(x) + " y: " + str(y) + "\n")
                      if (f < layer_parameters.filters and

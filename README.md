@@ -8,7 +8,7 @@ activation tensors, checkpoints, learned affine coefficients or credentials.
 
 OpenEye is checked out separately from
 [Learning-Chips-Lab/OpenEye](https://github.com/Learning-Chips-Lab/OpenEye), pinned
-to `93f0e82`. Maintained patches apply only to temporary/generated copies.
+to `36395dd`. Maintained patches apply only to temporary/generated copies.
 Original upstream copyright notices are retained. Public visibility alone does
 not grant a new license for code without an explicit license.
 
@@ -84,3 +84,30 @@ and its exhaustive adapter controls are now included; a new export check scans
 generated patch imports. Updated unit suite: **320 PASS, 6 opt-in RTL skipped**.
 The failed run remains failed evidence; only a fresh same-commit gated run can
 establish new public RTL/network correctness.
+
+## Current baseline (2026-11-06)
+
+The new full-network baseline uses pin36395dd and maintained correctness patches,
+including activation packing and the updated 32/24/18/16-bit register layout.
+Keep original r3 hardware, 64-channel/8-filter commands, MAC20 source/masks and
+INT8 arithmetic fixed. Experimental activation reuse, compact staging, round
+overlap, native-stride projection tiling and filter parallelism are not enabled.
+This baseline isolates later OpenEye changes; no new DominoSearch run is included.
+The historical pin93 run41625678985 remains separate evidence, not this baseline.
+Start a fresh chain; never import its checkpoints or assign its counters to pin363.
+
+Validation of the pin363 baseline export on Artix Linux: 331 tests PASS,
+six opt-in RTL cases skipped locally and still required in same-dispatch CI
+gates; PE smoke 3/3 PASS. Actionlint1.7.12 and shell/Python syntax PASS.
+Local AEAD tests use a separate Python3.11 environment with the pinned
+cryptography dependency; simulation environment and private credentials unchanged.
+These checks do not establish a new full-network PASS.
+
+Host BatchNorm/activation instrumentation records calls, elements and
+perf_counter_ns spans in host_operations.csv and JSON. Stem FP64 BN/ReLU,
+fixed-point BN affine/requantization, residual alignment/add and fused
+ReLU/INT8 clamp/cast are distinct operations. Forward/oracle/coefficient-setup
+phases remain separate. These are single-call host timings, not FPGA cycles,
+standalone INT8 ReLU latency, accuracy or board measurements. Resumed prefix
+timings are counted once; rebuilding the host stem for checkpoint validation
+is excluded from model execution totals. No tensor/coefficient values are exported.

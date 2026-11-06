@@ -5,7 +5,7 @@ MAC20 source, masks, INT8 arithmetic and all raw/logical golden checks. Apply
 maintained patches only to temporary copies. No training, new calibration,
 Vivado, board programming or new compression method in this repository.
 
-OpenEye commit: 93f0e82bd6aa0cddee73c9db115884e8ebdd7329
+OpenEye commit: 36395ddc530e106f06c50025a4069dd097688d8d
 
 The workflow must remain manual-only, standard Ubuntu, exact public checkout,
 same-dispatch gates and read-only repository permissions. Never import old

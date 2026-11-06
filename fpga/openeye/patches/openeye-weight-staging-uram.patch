@@ -1,7 +1,7 @@
 diff --git a/hdl/OpenEye_FPGA.v b/hdl/OpenEye_FPGA.v
 --- a/hdl/OpenEye_FPGA.v
 +++ b/hdl/OpenEye_FPGA.v
-@@ -2962,6 +2962,7 @@
+@@ -2963,6 +2963,7 @@
      // -------------------------------------------------------------------
      RAM_SP #(
          .DataWidth(TRANS_BITWIDTH_WGHT * CLUSTERS * NUM_GLB_WGHT),

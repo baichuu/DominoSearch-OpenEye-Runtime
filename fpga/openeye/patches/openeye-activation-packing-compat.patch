@@ -1,0 +1,96 @@
+diff --git a/hdl/data_pipeline_iact.v b/hdl/data_pipeline_iact.v
+--- a/hdl/data_pipeline_iact.v
++++ b/hdl/data_pipeline_iact.v
+@@ -397,7 +397,7 @@
+         end
+ 
+         // Wrap cycle_counter at SECOND_SPAD_DATA_CYCLE so it stays in range.
+-        if (cycle_counter == $bits(cycle_counter)'(SECOND_SPAD_DATA_CYCLE - 1) || (first_spad_max_i == 1)) begin
++        if (cycle_counter == $bits(cycle_counter)'(SECOND_SPAD_DATA_CYCLE - 1)) begin
+           cycle_counter <= 0;
+         end
+ 
+@@ -542,6 +542,24 @@
+         compute_sent               <= 1;  // flag: clear second_spad_words_o next enable cycle
+         cycle_counter              <= 0;
+ 
++        // Uneven-line handling (only for non-FC layers where lines don't fill full words)
++        if (first_spad_max_i < 2) begin
++          uneven_counter <= uneven_counter + 1;
++          if (uneven_counter == iact_x_line_repetitions_i - 1) begin
++            uneven_counter <= 0;
++          end
++          if (uneven_counter == iact_x_line_repetitions_i - 1) begin
++            // Wrap: toggle the storage flag; next line starts at the opposite sub-word.
++            uneven_ending_storage <= 1 - uneven_ending_storage;
++            cycle_counter <= $bits(cycle_counter)'(1) - $bits(cycle_counter)'(uneven_ending_storage);
++            uneven_ending         <= 1 - uneven_ending_storage;
++          end else begin
++            // No wrap: continue with the current storage value.
++            cycle_counter <= $bits(cycle_counter)'(uneven_ending_storage);
++            uneven_ending <= uneven_ending_storage;
++          end
++        end
++
+         // Fully reset uneven state on a second consecutive compute_i pulse.
+         if (compute_sent) begin
+           cycle_counter  <= 0;
+diff --git a/hdl/iact_stream_constructor.v b/hdl/iact_stream_constructor.v
+--- a/hdl/iact_stream_constructor.v
++++ b/hdl/iact_stream_constructor.v
+@@ -228,13 +228,18 @@
+   assign values_per_word = fully_connected_i ? 1 : iact_channels_per_pe_i;
+   // Every bank holds the serial input window. Read neighboring pixels from
+   // different banks, then skip those pixels when advancing to the next group.
+-  assign rd_addr_inc_0_next = rd_addr_0 + rd_addr_inc_0;
+-  assign rd_addr_inc_1_next = rd_addr_1 + rd_addr_inc_1;
++  assign rd_addr_inc_0_next = rd_addr_0 + rd_addr_inc_0 +
++      (single_channel ? NUM_GLB_IACT - 1 :
++      ((!fully_connected_i && (ram_inc_counter == values_per_word - 2)) ?
++       ((NUM_GLB_IACT - 1) * channel_div_trans) : 0));
++  assign rd_addr_inc_1_next = rd_addr_1 +
++      ((single_channel && !single_read_half) ? 0 : rd_addr_inc_1);
+   assign rd_addr_inc_2_next = rd_addr_2 + rd_addr_inc_2;
+   assign rd_addr_inc_3_next = rd_addr_3 + rd_addr_inc_3;
+   // Single-channel RAM words hold two image rows. Move by whole row pairs,
+   // keeping the remaining half-row for the next window's initial read.
+-  assign rd_addr_inc_4_next = rd_addr_4 + rd_addr_inc_4;
++  assign rd_addr_inc_4_next = rd_addr_4 + (single_channel ?
++      ((({1'b0, stride_y_i} + single_output_half) >> 1) * conv_row_words) : rd_addr_inc_4);
+ 
+     integer pec, per, b;
+     always @(posedge clk_i, negedge rst_ni) begin
+@@ -416,6 +419,7 @@
+               ram_rd_addr            <= rd_addr_inc_0_next;
+               rd_cycle_loop_cnt_0    <= rd_cycle_loop_cnt_0 + 1;
+               if (rd_cycle_loop_cnt_0 == rd_loop_limit_0) begin
++                if (single_channel) single_read_half <= !single_read_half;
+                 rd_cycle_loop_cnt_0  <= 0;
+                 rd_addr_0            <= rd_addr_inc_1_next;
+                 rd_addr_1            <= rd_addr_inc_1_next;
+@@ -444,6 +448,7 @@
+                   rd_addr_3           <= rd_addr_inc_3_next;
+                   rd_cycle_loop_cnt_3 <= rd_cycle_loop_cnt_3 + 1;
+                   if (rd_cycle_loop_cnt_3 == rd_loop_limit_3) begin
++                    if (single_channel) single_output_half <= single_output_half ^ stride_y_i[0];
+                     rd_cycle_loop_cnt_3 <= 0;
+                     ram_rd_addr         <= rd_addr_inc_4_next;
+                     rd_addr_0           <= rd_addr_inc_4_next;
+@@ -563,7 +568,16 @@
+           single_write_row <= 0;
+           single_write_half <= 0;
+         end
+-        
++        if (single_channel && ram_wr_en) begin
++          ram_wr_addr_q <= single_write_row + single_write_column;
++          single_write_half_q <= single_write_half;
++          single_write_column <= single_write_column + 1;
++          if (single_write_column == conv_row_words - 1) begin
++            single_write_column <= 0;
++            single_write_half <= !single_write_half;
++            if (single_write_half) single_write_row <= single_write_row + conv_row_words;
++          end
++        end
+         if (fully_connected_i) begin
+           ready_o <= 1;
+           ram_wr_en <= 0;

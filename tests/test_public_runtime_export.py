@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-PIN = "93f0e82bd6aa0cddee73c9db115884e8ebdd7329"
+PIN = "36395ddc530e106f06c50025a4069dd097688d8d"
 
 
 def test_python_helpers_imported_by_generated_patches_are_exported():

@@ -15,21 +15,21 @@ diff --git a/test/cocotb_fpga/OpenEye_FPGA_tb.py b/test/cocotb_fpga/OpenEye_FPGA
 +        assert os.environ.get("OPENEYE_ZERO_BIAS") == "1"
 +        if pattern.get("layer_type") == "linear":
 +            shape = [layer_parameters[model[0].name].iact_size_x, 1, 1]
-+            dram.fmap[model[0].name] = validate_activation(pattern["runtime_activations"], shape)[:, 0, 0].tolist()
++            dram.fmap[model[0].name][0] = validate_activation(pattern["runtime_activations"], shape)[:, 0, 0].tolist()
 +        else:
 +            shape = [layer_parameters[model[0].name].channels, layer_parameters[model[0].name].iact_size_x,
 +                     layer_parameters[model[0].name].iact_size_y]
-+            dram.fmap[model[0].name] = validate_activation(pattern["runtime_activations"], shape).tolist()
++            dram.fmap[model[0].name][0] = validate_activation(pattern["runtime_activations"], shape).tolist()
      test_amount = 1
-     for _ in range(test_amount) :
-         for layer_number, layer in enumerate(model):
-@@ -744,6 +755,9 @@
-                             assert dram_ok and file_ok, "result check failed: values %s, reference file %s" % (
-                                 "ok" if dram_ok else "differ", "ok" if file_ok else "differs")
-                             if os.environ.get("OPENEYE_WGHT_PATTERN_JSON"):
-+                                if pattern.get("layer_type") == "linear" and "runtime_activations" in pattern:
-+                                    from domino_runtime_activations import check_runtime_tile
-+                                    check_runtime_tile(pattern, dram.fmap[next_layer])
-                                 if pattern.get("spatial_tile") is not None:
-                                     from domino_spatial_tiles import check_and_record_tile
-                                     check_and_record_tile(pattern, dram.fmap[next_layer])
+     branch_begin = []
+     branch_max = []
+@@ -763,6 +774,9 @@
+                         assert dram_ok and file_ok, "result check failed: values %s, reference file %s" % (
+                             "ok" if dram_ok else "differ", "ok" if file_ok else "differs")
+                         if os.environ.get("OPENEYE_WGHT_PATTERN_JSON"):
++                            if pattern.get("layer_type") == "linear" and "runtime_activations" in pattern:
++                                from domino_runtime_activations import check_runtime_tile
++                                check_runtime_tile(pattern, dram.fmap[next_layer][0])
+                             if pattern.get("spatial_tile") is not None:
+                                 from domino_spatial_tiles import check_and_record_tile
+                                 check_and_record_tile(pattern, dram.fmap[next_layer][0])

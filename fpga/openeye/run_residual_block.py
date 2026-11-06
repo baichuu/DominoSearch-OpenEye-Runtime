@@ -23,11 +23,11 @@ from fpga.openeye.prepare_packed_layer_fixture import (
     read_float32_le, sha256, verify_source_file,
 )
 from fpga.openeye.runtime_activations import (
-    activation_record, affine_fixed, convolution, residual_add,
+    activation_record, affine_fixed, convolution, residual_add, measured_host_call,
 )
 from fpga.openeye.verify_fpga_bundle import verify_bundle
 
-EXPECTED_OPENEYE_COMMIT = '93f0e82bd6aa0cddee73c9db115884e8ebdd7329'
+EXPECTED_OPENEYE_COMMIT = '36395ddc530e106f06c50025a4069dd097688d8d'
 SHIFT = 24
 
 
@@ -77,7 +77,7 @@ def bn_coefficients(accumulator, input_scale, weight_scale, alpha, beta, relu):
     return multiplier.astype(np.int64), bias.astype(np.int64), scale
 
 
-def source_activation(bundle, manifest, size, sample):
+def source_activation(bundle, manifest, size, sample, timings=None):
     """Verified FP32 vector -> source stem on host -> block input CXY INT8.
 
     Source prefix is deliberately host FP64, not claimed to be OpenEye RTL.
@@ -106,7 +106,9 @@ def source_activation(bundle, manifest, size, sample):
                     ((0, 0), (3, 3), (3, 3)))
     windows = np.lib.stride_tricks.sliding_window_view(tensor, (7, 7), axis=(1, 2))[:, ::2, ::2]
     stem = np.einsum('cxyij,cfji->fxy', windows, weights, optimize=True)
-    stem = np.maximum(stem * alpha[:, None, None] + beta[:, None, None], 0)
+    stem = measured_host_call(timings, 'batchnorm_affine_fp64', stem.size,
+        lambda: stem * alpha[:, None, None] + beta[:, None, None])
+    stem = measured_host_call(timings, 'relu_fp64', stem.size, np.maximum, stem, 0)
     padded = np.pad(stem, ((0, 0), (1, 1), (1, 1)), constant_values=-np.inf)
     stem = np.lib.stride_tricks.sliding_window_view(padded, (3, 3), axis=(1, 2))[:, ::2, ::2].max(axis=(-2, -1))
     start = (56 - size) // 2

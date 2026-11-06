@@ -1,7 +1,7 @@
 diff --git a/src/open_eye/layer_parameters.py b/src/open_eye/layer_parameters.py
 --- a/src/open_eye/layer_parameters.py
 +++ b/src/open_eye/layer_parameters.py
-@@ -740,6 +740,14 @@
+@@ -741,6 +741,14 @@
              if (self.used_channels == 0):
                  assert False
          self.used_channels = min(self.channels,self.used_channels)
@@ -33,7 +33,7 @@ diff --git a/src/open_eye/iact_stream_mapper.py b/src/open_eye/iact_stream_mappe
 diff --git a/src/open_eye/conv_mapper.py b/src/open_eye/conv_mapper.py
 --- a/src/open_eye/conv_mapper.py
 +++ b/src/open_eye/conv_mapper.py
-@@ -159,7 +159,7 @@
+@@ -158,7 +158,7 @@
          "fc_size_reg": 0,
          "iact_size_x": layer_params.iact_size_x,
          "iact_size_y": layer_params.iact_size_y,

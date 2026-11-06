@@ -19,6 +19,7 @@ from fpga.openeye.summarize_wrapper_metrics import parse_log, validate_records
 
 SOURCE_ROOT = Path(__file__).resolve().parent
 REQUIRED_SOURCES = {
+    'activation_packing_patch_sha256': 'patches/openeye-activation-packing-compat.patch',
     'serial_odd_channel_padding_patch_sha256': 'patches/openeye-serial-odd-channel-padding.patch',
     'layer_mapper_shared_state_patch_sha256': 'patches/openeye-layer-mapper-shared-state.patch',
     'network_tile_tool_sha256': 'network_layer_tiles.py',
@@ -67,7 +68,7 @@ def verify_layer(root, expected_stage=None):
         if provenance.get(key) != 'not-applied-upstream':
             raise ValueError('Superseded patch must be supplied by pinned upstream: ' + key)
     for key, relative in REQUIRED_SOURCES.items():
-        if provenance[key] != file_record(SOURCE_ROOT, Path(relative))['sha256']:
+        if provenance.get(key) != file_record(SOURCE_ROOT, Path(relative))['sha256']:
             raise ValueError('Wrong maintained helper/patch identity: ' + key)
     projection = report['logical_execution'].get('kernel_width') == 1
     expected_projection_patch = (file_record(SOURCE_ROOT, Path('patches/openeye-runtime-projection-dense-iact.patch'))['sha256']

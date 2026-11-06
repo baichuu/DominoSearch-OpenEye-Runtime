@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import shutil
 from pathlib import Path
 import subprocess
@@ -21,11 +22,11 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from fpga.openeye.prepare_packed_layer_fixture import DEFAULT_PLAN, load_json, prepare, read_float32_le, sha256, verify_source_file
 from fpga.openeye.run_residual_block import batchnorm, bn_coefficients, digest, positive_scale, source_activation, write_json
-from fpga.openeye.runtime_activations import activation_record, affine_fixed, convolution, dense, global_average_pool, residual_add
+from fpga.openeye.runtime_activations import activation_record, affine_fixed, convolution, dense, global_average_pool, residual_add, measured_host_call
 from fpga.openeye.verify_fpga_bundle import verify_bundle
 from fpga.openeye.network_checkpoint import FINAL_SEGMENT, STAGE_SEGMENTS
 
-EXPECTED_OPENEYE_COMMIT = '93f0e82bd6aa0cddee73c9db115884e8ebdd7329'
+EXPECTED_OPENEYE_COMMIT = '36395ddc530e106f06c50025a4069dd097688d8d'
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -65,6 +66,7 @@ class Runtime:
 
     def stage(self, layer, a, ref_a, scale, bn=None, relu=False, rtl=True):
         stage_started = time.perf_counter()
+        host_operations = dict(forward_path=[], oracle_path=[], coefficient_setup=[])
         if not np.array_equal(a, ref_a):
             raise AssertionError('Forwarded activation differs before ' + layer)
         identifier = layer.replace('.', '-')
@@ -83,7 +85,9 @@ class Runtime:
         coefficients = None
         if bn is not None:
             alpha, beta, identity = batchnorm(self.packed, self.manifest, bn)
-            m, b, next_scale = bn_coefficients(reference, scale, manifest['quantization']['scale'], alpha, beta, relu)
+            m, b, next_scale = measured_host_call(host_operations['coefficient_setup'],
+                'batchnorm_coefficient_preparation', reference.size, bn_coefficients,
+                reference, scale, manifest['quantization']['scale'], alpha, beta, relu)
             coefficients = self.private / f'{identifier}-affine.json'
             write_json(coefficients, dict(multiplier=m.tolist(), bias=b.tolist(), shift=24, output_scale=next_scale))
         input_record = activation_record(a, scale)
@@ -116,13 +120,19 @@ class Runtime:
                       weight_scale=manifest['quantization']['scale'])
         record.update(input_values=int(a.size), input_zero_values=int(np.count_nonzero(a == 0)))
         if coefficients is not None:
-            actual = affine_fixed(actual, m, b, 24, relu=relu)
-            reference = affine_fixed(reference, m, b, 24, relu=relu)
+            actual = affine_fixed(actual, m, b, 24, relu=relu, timings=host_operations['forward_path'])
+            reference = affine_fixed(reference, m, b, 24, relu=relu, timings=host_operations['oracle_path'])
             record.update(bn_sha256=identity, affine_sha256=sha256(coefficients), output_scale=next_scale,
                           output_sha256=digest(actual), forwarded_int8_sha256=hashlib.sha256(actual.astype('i1').tobytes()).hexdigest())
         else:
             next_scale = scale * manifest['quantization']['scale']
-        record.update(forwarded_values=int(actual.size),
+        if layer == 'layer1.0.conv1':
+            host_operations['source_stem'] = getattr(self, 'stem_host_operations', [])
+        record.update(host_operations=host_operations,
+                      host_timing_environment=dict(platform=platform.platform(), machine=platform.machine(),
+                          python=platform.python_version(), numpy=np.__version__,
+                          clock='perf_counter_ns', clock_resolution_seconds=time.get_clock_info('perf_counter').resolution),
+                      forwarded_values=int(actual.size),
                       forwarded_zero_values=int(np.count_nonzero(actual == 0)),
                       forwarded_at_positive_limit=int(np.count_nonzero(actual == 127)),
                       preparation_reference_wall_seconds=prepared_at-stage_started,
@@ -152,8 +162,9 @@ class Runtime:
         if main.shape != skip.shape:
             raise AssertionError('Residual branch shape mismatch: ' + prefix)
         out_scale = positive_scale(np.maximum(ref_main * main_scale + ref_skip * skip_scale, 0))
-        output = residual_add(main, main_scale, skip, skip_scale, out_scale)
-        reference = residual_add(ref_main, main_scale, ref_skip, skip_scale, out_scale)
+        host_operations = dict(forward_path=[], oracle_path=[])
+        output = residual_add(main, main_scale, skip, skip_scale, out_scale, timings=host_operations['forward_path'])
+        reference = residual_add(ref_main, main_scale, ref_skip, skip_scale, out_scale, timings=host_operations['oracle_path'])
         if not np.array_equal(output, reference):
             raise AssertionError('Residual add mismatch: ' + prefix)
         self.blocks.append(dict(block=prefix, downsample=downsample, input_shape=list(original.shape),
@@ -161,7 +172,8 @@ class Runtime:
                                 output_shape=list(output.shape), skip_shape=list(skip.shape),
                                 forwarded_int8_sha256=hashlib.sha256(output.astype('i1').tobytes()).hexdigest(),
                                 output_scale=out_scale, output_sha256=digest(output),
-                                reference_sha256=digest(reference), checked_values=int(output.size)))
+                                reference_sha256=digest(reference), checked_values=int(output.size),
+                                host_operations=host_operations))
         return output, reference, out_scale
 
 
@@ -208,7 +220,8 @@ def execute(args):
             raise ValueError('Require clean pinned OpenEye checkout')
     packed = bundle / 'mac20/packed-v1'
     manifest = load_json(packed / 'manifest.json')
-    a, scale, input_identity = source_activation(bundle, manifest, args.spatial_size, args.sample)
+    stem_host_operations = []
+    a, scale, input_identity = source_activation(bundle, manifest, args.spatial_size, args.sample, stem_host_operations)
     ref_a = a.copy()
     segment = getattr(args, 'segment_index', None)
     context_path = getattr(args, 'resume_context_only', None)
@@ -244,6 +257,9 @@ def execute(args):
     else:
         validate_resume_ingress(load_json(evidence / 'ingress-verification.json'), ingress)
     runtime = Runtime(packed, manifest, private, evidence, args.openeye_root, args.reference_only)
+    # Only the original prefix owns stem timings; reconstruction in later jobs
+    # is checkpoint setup, never another model execution in the network total.
+    runtime.stem_host_operations = stem_host_operations if resumed is None else []
     pending = None
     if resumed is not None:
         runtime.stages, runtime.blocks = state['stages'], state['blocks']
@@ -280,6 +296,7 @@ def execute(args):
                        ingress_verified_utc=ingress['verified_utc'],
                        completed_blocks=[b['block'] for b in runtime.blocks],
                        completed_rtl_stages=[s['layer'] for s in runtime.stages],
+                       block_host_operations=[dict(block=b['block'], host_operations=b.get('host_operations', {})) for b in runtime.blocks],
                        forwarded_int8_sha256=hashlib.sha256(a.astype('i1').tobytes()).hexdigest(),
                        checkpoint_boundary='checked-stage' if pending else 'checked-block',
                        full_network_complete=False, eligible_for_network_cost=False,

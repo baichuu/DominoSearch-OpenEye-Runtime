@@ -18,7 +18,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
-readonly EXPECTED_OPENEYE_COMMIT='93f0e82bd6aa0cddee73c9db115884e8ebdd7329'
+readonly EXPECTED_OPENEYE_COMMIT='36395ddc530e106f06c50025a4069dd097688d8d'
+readonly ACTIVATION_PACKING_PATCH="$SCRIPT_DIR/patches/openeye-activation-packing-compat.patch"
 readonly DEBUG_PATCH="$SCRIPT_DIR/patches/openeye-pe-debug-wrapper.patch"
 readonly PE_WGHT_COUNT_WIDTH_PATCH="$SCRIPT_DIR/patches/openeye-pe-weight-spad-count-width.patch"
 
@@ -52,6 +53,7 @@ openeye_root=$(realpath -- "$1")
 [[ -d $openeye_root/hdl ]] || die "OpenEye checkout not found: $openeye_root"
 [[ -x $openeye_root/.venv/bin/python ]] ||
   die "OpenEye virtual environment not found: $openeye_root/.venv"
+[[ -s $ACTIVATION_PACKING_PATCH ]] || die "Activation packing patch not found: $ACTIVATION_PACKING_PATCH"
 [[ -s $DEBUG_PATCH ]] || die "Debug wrapper patch not found: $DEBUG_PATCH"
 [[ -s $PE_WGHT_COUNT_WIDTH_PATCH ]] || die "PE count-width patch not found: $PE_WGHT_COUNT_WIDTH_PATCH"
 command -v patch >/dev/null 2>&1 || die 'patch is required.'
@@ -68,18 +70,20 @@ work_dir=$(mktemp -d -t openeye-pe-smoke-XXXXXX)
 trap 'rm -rf -- "$work_dir"' EXIT
 
 # Copy the checkout without the venv (symlinked) and without simulation output.
-tar --exclude=.venv --exclude=test/.temp -cf - \
-  -C "$openeye_root" . | tar -xf - -C "$work_dir"
+# Archive the verified commit, excluding mutable Git metadata and ignored run files.
+git -C "$openeye_root" archive "$actual_commit" | tar -xf - -C "$work_dir"
 ln -sfn "$openeye_root/.venv" "$work_dir/.venv"
 
 patch --batch --forward --fuzz=0 -p1 -d "$work_dir" <"$DEBUG_PATCH"
 git -C "$work_dir" apply "$PE_WGHT_COUNT_WIDTH_PATCH"
+git -C "$work_dir" apply "$ACTIVATION_PACKING_PATCH"
 
 {
   printf '# Measured on a temporary copy of %s\n' "$openeye_root"
   printf '# commit: %s\n' "$actual_commit"
   printf '# compatibility patch: %s\n' \
     "$(sha256sum "$DEBUG_PATCH" | awk '{print $1}')"
+  printf '# activation packing patch: %s\n' "$(sha256sum "$ACTIVATION_PACKING_PATCH" | awk '{print $1}')"
   printf '# The pinned checkout itself is unmodified.\n'
   printf '# PE count-width patch: %s\n' \
     "$(sha256sum "$PE_WGHT_COUNT_WIDTH_PATCH" | awk '{print $1}')"

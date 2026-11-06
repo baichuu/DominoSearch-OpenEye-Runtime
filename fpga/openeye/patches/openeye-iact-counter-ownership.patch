@@ -1,7 +1,7 @@
 diff --git a/hdl/iact_stream_constructor.v b/hdl/iact_stream_constructor.v
 --- a/hdl/iact_stream_constructor.v
 +++ b/hdl/iact_stream_constructor.v
-@@ -267,6 +267,11 @@
+@@ -262,6 +262,11 @@
          rd_addr_2                  <= 0;
          rd_addr_3                  <= 0;
          rd_addr_4                  <= 0;
@@ -13,7 +13,7 @@ diff --git a/hdl/iact_stream_constructor.v b/hdl/iact_stream_constructor.v
        end else begin
          if (fully_connected_i) begin
            iact_enable_o <= 0;
-@@ -548,11 +553,6 @@
+@@ -541,11 +546,6 @@
          wr_cycle_loop_cnt_0           <= 0;
          wr_cycle_loop_cnt_1           <= 0;
          wr_cycle_loop_cnt_2           <= 0;
