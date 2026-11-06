@@ -180,7 +180,7 @@ jobs:
         test "$(git -C ../OpenEye rev-parse HEAD)" = "$OPENEYE_PIN"
         test -z "$(git -C ../OpenEye status --short)"
         verilator --version | grep -F "Verilator $VERILATOR_VERSION"
-        ../OpenEye/.venv/bin/python -m pytest -q tests/test_runtime_activations.py tests/test_spatial_layer_tiles.py tests/test_network_runtime.py tests/test_network_evidence.py tests/test_network_drive_access.py tests/test_network_actions_preflight.py tests/test_openeye_wrapper_metrics.py tests/test_public_runtime_export.py tests/test_public_evidence.py tests/test_ci_rclone_config.py
+        ../OpenEye/.venv/bin/python -m pytest -q tests/test_runtime_activations.py tests/test_spatial_layer_tiles.py tests/test_network_runtime.py tests/test_network_evidence.py tests/test_network_drive_access.py tests/test_network_actions_preflight.py tests/test_openeye_wrapper_metrics.py tests/test_public_runtime_export.py tests/test_public_evidence.py tests/test_ci_rclone_config.py tests/test_runtime_projection_count_lifetime.py
         bash -n fpga/openeye/run_wrapper_conv_regression.sh
     - name: Configure read-only artifact access
       env:

@@ -111,3 +111,16 @@ phases remain separate. These are single-call host timings, not FPGA cycles,
 standalone INT8 ReLU latency, accuracy or board measurements. Resumed prefix
 timings are counted once; rebuilding the host stem for checkpoint validation
 is excluded from model execution totals. No tensor/coefficient values are exported.
+
+## Pin363 projection count fix (2026-11-06)
+
+Baseline run42235216530 failed both focused gates; all network segments were
+skipped. The retained-zero kernel1 path inherited an unconditional address-count
+clear in the new upstream activation pipeline. Its generated-only patch now
+clears metadata only at compute_i, matching the maintained kernel3 policy.
+Weight sparsity, model/masks, INT8 arithmetic, pin, r3 geometry and all raw/logical
+goldens remain fixed. A module-level Icarus regression fails before the fix and
+passes after it; projection8/16 full-wrapper fixtures pass two real DUT JUnit.
+Private selected and public redacted copies both pass the unchanged verifier.
+Unit/privacy/checkpoint controls:332 PASS, six required opt-in CI cases skipped
+locally. Start a fresh same-dispatch gated chain, never reuse old boundaries.

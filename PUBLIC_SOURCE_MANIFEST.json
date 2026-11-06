@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source_execution_commit": "036438537035c5b0e0672b18d798d08a3548497b",
+  "source_execution_commit": "d8b085d3308646e1cb731635d11b2cfad46fcb88",
   "openeye_pin": "36395ddc530e106f06c50025a4069dd097688d8d",
   "export": "selected runtime sources only; new Git history; no tensors or credentials",
   "upstream_file_sha256": {
@@ -18,7 +18,7 @@
     "fpga/openeye/patches/openeye-pe-debug-wrapper.patch": "455ef5331e02ff421e04fc434a80ba7a6f2534bf2bc7f40f65b82356f42530cd",
     "fpga/openeye/patches/openeye-pe-weight-spad-count-width.patch": "945cb95812aede8e096d5a10a72f91cbdc8b34d26c241750989e24d46e483e3b",
     "fpga/openeye/patches/openeye-runtime-kernel3-retained-iact.patch": "5dbfda9ca36555c765fd0a86266dd73c23764d282308b9c448d1a86f03e23d4c",
-    "fpga/openeye/patches/openeye-runtime-projection-dense-iact.patch": "b757a0e1d96c31a0cd6c849e3788cadead1a4a2d0a24f68a2399c772d4220ed6",
+    "fpga/openeye/patches/openeye-runtime-projection-dense-iact.patch": "7cb045cff95a6ce556eea22362be5a2c0038bf7a8a453e25550276c42f840439",
     "fpga/openeye/patches/openeye-serial-odd-channel-padding.patch": "09574baaadf3713319a6a05f1aed8620a9a23ffd4b4e3f1a58dfd3f5ebea1d24",
     "fpga/openeye/patches/openeye-tall-conv-sync.patch": "c83163a02d42908a7382ede721e30dd807046447fb8bf8cebbea681ce386fbce",
     "fpga/openeye/patches/openeye-weight-staging-uram.patch": "dba253f4f892609c109d0ba783216bc364c33cb296a0abc5a9d13dc0328b018d",
@@ -64,15 +64,16 @@
     "tests/test_openeye_wrapper_metrics.py": "241d67abb558d1379690089b8391e6133a8d6af3ebfc207648d5ab83246e1dc7",
     "tests/test_packed_layer_fixture.py": "49bda6dc7e0d64ae024a52b92d79175819b8758b227d2377846219080e0155b1",
     "tests/test_runtime_activations.py": "35cc65ffbf6de28d4775d162e5fa99be0148d3ad0307068c69a38ec1441cb6df",
-    "tests/test_spatial_layer_tiles.py": "c738b4afab95ac84e796a127ed0d9fbff14799e2fca363b80ebd350f7ff8a38a"
+    "tests/test_spatial_layer_tiles.py": "c738b4afab95ac84e796a127ed0d9fbff14799e2fca363b80ebd350f7ff8a38a",
+    "tests/test_runtime_projection_count_lifetime.py": "462f2157952b74b29afc4bd53d174510212687f830c45919b99ac485b045318a"
   },
   "export_file_sha256": {
     ".gitattributes": "660b1e75691dc6186ec10b09adac3b284ea0179c4e30c764a3e643d9cbb5ec53",
-    ".github/workflows/openeye-full-layer.yml": "1dbfb73ba0f281732254bcdb447c73f4c31ab98ddab82d2a5543ee9a5534677f",
+    ".github/workflows/openeye-full-layer.yml": "9d6e9d63bd577591974ce2854bbf5a42b20a34309c721f7816081f5658fa3c04",
     ".gitignore": "1d35f6dbdf257f40e40432aa83bb6f53f0fde7ee30a956ad32e8b8d15116f525",
     "ACTION_PINS.json": "c7576cf128c644a5af9311e688e84030e9e40a854a5cbc0fe5ab61095725e9a2",
     "AGENTS.md": "1f722a96be2d8340918a70a55c2f6c935d3e1929c8f7e0f65a6a341ee235ce63",
-    "README.md": "d2d6d21be05322d8a1886c4044817e7752fc46dad332b7b47b0fd786e87f938d",
+    "README.md": "78540f2f6d62a19567991b71a202710bf7928f6d1f81ab80c95cd00b5d595f16",
     "fpga/openeye/compat/sitecustomize.py": "e2259e3fd7710485dcce44beda52c898d48baf3d2d1a8343b7190da987fc375e",
     "fpga/openeye/export_network_measurements.py": "0ce657a93178a2c9c2a52ddd818df4d9ff86ae8ba04514bf4aa6389f03f43a77",
     "fpga/openeye/network_actions_preflight.py": "eb14f45f6fea0ae91ca4a48bc55c4810e01dc0921899dcd36fca8703e1e4d524",
@@ -87,7 +88,7 @@
     "fpga/openeye/patches/openeye-pe-debug-wrapper.patch": "455ef5331e02ff421e04fc434a80ba7a6f2534bf2bc7f40f65b82356f42530cd",
     "fpga/openeye/patches/openeye-pe-weight-spad-count-width.patch": "945cb95812aede8e096d5a10a72f91cbdc8b34d26c241750989e24d46e483e3b",
     "fpga/openeye/patches/openeye-runtime-kernel3-retained-iact.patch": "5dbfda9ca36555c765fd0a86266dd73c23764d282308b9c448d1a86f03e23d4c",
-    "fpga/openeye/patches/openeye-runtime-projection-dense-iact.patch": "b757a0e1d96c31a0cd6c849e3788cadead1a4a2d0a24f68a2399c772d4220ed6",
+    "fpga/openeye/patches/openeye-runtime-projection-dense-iact.patch": "7cb045cff95a6ce556eea22362be5a2c0038bf7a8a453e25550276c42f840439",
     "fpga/openeye/patches/openeye-serial-odd-channel-padding.patch": "09574baaadf3713319a6a05f1aed8620a9a23ffd4b4e3f1a58dfd3f5ebea1d24",
     "fpga/openeye/patches/openeye-tall-conv-sync.patch": "c83163a02d42908a7382ede721e30dd807046447fb8bf8cebbea681ce386fbce",
     "fpga/openeye/patches/openeye-weight-staging-uram.patch": "dba253f4f892609c109d0ba783216bc364c33cb296a0abc5a9d13dc0328b018d",
@@ -136,6 +137,7 @@
     "tests/test_public_evidence.py": "e8a8ea65ea76f751f4d7a58233436f024681999c37df57385f1ee9072ae746fc",
     "tests/test_public_runtime_export.py": "f0a97bfff27997e270df178d61ce2463bd0f2959066bc732009dac2f688c231f",
     "tests/test_runtime_activations.py": "35cc65ffbf6de28d4775d162e5fa99be0148d3ad0307068c69a38ec1441cb6df",
+    "tests/test_runtime_projection_count_lifetime.py": "462f2157952b74b29afc4bd53d174510212687f830c45919b99ac485b045318a",
     "tests/test_spatial_layer_tiles.py": "c738b4afab95ac84e796a127ed0d9fbff14799e2fca363b80ebd350f7ff8a38a"
   },
   "adaptations": [
@@ -146,7 +148,8 @@
     "official actions commit SHAs pinned",
     "include nm_offset_adapter imported by generated pair-safe patch; add generated-import export gate",
     "pin36395dd maintained correctness export; preserve public checkpoint binding, reduced workflow and redacted evidence; no experimental hardware optimizations",
-    "host BatchNorm/activation timing metadata with separate forward/oracle/setup spans and public privacy control"
+    "host BatchNorm/activation timing metadata with separate forward/oracle/setup spans and public privacy control",
+    "kernel1 retained-zero address-count clear bounded by compute_i; real baseline-negative/fixed-positive Icarus regression required by CI; fresh chain"
   ],
   "baseline": {
     "architecture": "full-layer-r3",

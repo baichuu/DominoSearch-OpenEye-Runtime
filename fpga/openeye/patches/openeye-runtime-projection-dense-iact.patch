@@ -13,3 +13,14 @@ diff --git a/hdl/PE.v b/hdl/PE.v
        .FIRST_SPAD_ADDR (IACT_ADDR_ADDR),
        .FIRST_SPAD_DATA (IACT_ADDR_DATA),
        .SECOND_SPAD_ADDR(IACT_DATA_ADDR),
+--- a/hdl/data_pipeline_iact.v
++++ b/hdl/data_pipeline_iact.v
+@@ -549,7 +549,7 @@
+           uneven_counter <= 0;
+         end
+       end
+-      if (!SPARSITY_EN) begin
++      if (!SPARSITY_EN && compute_i) begin
+         first_spad_en_o    <= 0;
+         first_spad_data_o  <= 0;
+         first_spad_addr_o  <= 0;
