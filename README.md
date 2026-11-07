@@ -124,3 +124,28 @@ passes after it; projection8/16 full-wrapper fixtures pass two real DUT JUnit.
 Private selected and public redacted copies both pass the unchanged verifier.
 Unit/privacy/checkpoint controls:332 PASS, six required opt-in CI cases skipped
 locally. Start a fresh same-dispatch gated chain, never reuse old boundaries.
+
+## Original dense baseline comparison (2026-11-07)
+
+Branch `baseline-dense-r3` runs the original verified ResNet-18 dense checkpoint,
+21 layers at4:4, using explicit `OPENEYE_MODEL_PROFILE=dense-baseline-v1`.
+The source checkpoint is not reconstructed from pruned MAC20 weights. The new
+immutable bundle stays in the existing owner-only private Drive root; all three
+archives and the bundle manifest have fixed checksums in this workflow.
+
+Compare against audited MAC20 run42238422605/execution79544bf: same OpenEye36395dd,
+r3/72PE/buffers, original geometry56, sample0 from the exact same FP32 input
+vector file, channel64/filter8 tiling and INT8 arithmetic convention. All30
+wrapper/mapping/arithmetic/patch sources are byte-identical to that execution.
+Only model selection, dense admission and model-aware evidence reporting change.
+Each model uses its own original weights, BN, derived scales and independent
+golden. Different intermediate activations are part of this model comparison;
+it is not an isolated same-activation mask ablation.
+
+The workflow runs its own focused/downsample/FC gates, then fresh authenticated
+segments0..11. Model identity is bound into checkpoint context; old MAC20 state
+must not be imported. A dispatch or host reference pass is not network RTL PASS.
+Report `100*(cycles_dense-cycles_MAC20)/cycles_dense` only after both full runs
+pass independent evidence audits. Load/processing/traffic reductions stay
+separate from theoretical MAC reduction and host/simulator wall time. No new
+ImageNet accuracy, physical timing, power or board result is implied.

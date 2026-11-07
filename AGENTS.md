@@ -17,3 +17,14 @@ negative controls and validate generated public copies before publication.
 Checkpoints use v2, segments0..5 are completed blocks,6..10 are checked layer4
 stages with original skip retained,11 is final GAP/FC audit. Failed/skipped or
 incomplete work cannot be certified as PASS. Read README.md before changes.
+
+## Dense baseline extension — 2026-11-07
+
+User explicitly authorizes original dense checkpoint comparison against audited
+MAC20 run42238422605/public79544bf. On branch baseline-dense-r3 use
+OPENEYE_MODEL_PROFILE=dense-baseline-v1 and verified original dense4:4 weights.
+Keep source input sample0 from immutable MAC20 verification vectors; dense has
+its own BN/scales/oracle/checkpoint chain. No reconstruction of pruned weights.
+Keep exact pin363/r3/72PE/buffers/mapping/RTL/patches and all numeric gates.
+This overrides only the earlier MAC20-only source restriction for this explicit
+baseline experiment. Never substitute either model or import cross-model state.

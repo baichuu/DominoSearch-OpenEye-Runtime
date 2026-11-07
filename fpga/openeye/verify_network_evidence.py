@@ -15,6 +15,7 @@ from fpga.openeye.openeye_evidence_bundle import file_record, load_json, parse_k
 from fpga.openeye.network_layer_tiles import channel_filter_plan
 from fpga.openeye.run_network_inference import EXPECTED_OPENEYE_COMMIT
 from fpga.openeye.prepare_packed_layer_fixture import DEFAULT_PLAN
+from fpga.openeye.network_model_source import selected_model, execution_plan, model_ingress, DENSE_PROFILE, DENSE_IDENTITIES
 from fpga.openeye.summarize_wrapper_metrics import parse_log, validate_records
 
 SOURCE_ROOT = Path(__file__).resolve().parent
@@ -115,12 +116,15 @@ def verify(root, mode, domino_commit):
     if mode == 'downsample-block' and report['input_identity']['spatial_size'] not in (16, 56):
         raise ValueError('Unsupported downsample input geometry')
     ingress = load_json(root / 'ingress-verification.json')
-    if (ingress['method'] != 'packed-v1-fpga-ingress-integrity' or ingress['source_commit'] != '3060cf7'
-            or ingress['candidates']['mac20']['checkpoint_sha256'] != report['checkpoint_sha256']):
-        raise ValueError('Wrong immutable ingress/checkpoint identity')
+    profile = selected_model(report.get('model_profile', 'mac20'))
+    model_source = model_ingress(ingress, profile)
+    if model_source['checkpoint_sha256'] != report['checkpoint_sha256']:
+        raise ValueError('Wrong immutable checkpoint identity')
+    if profile == DENSE_PROFILE and report['scheme_sha256'] != DENSE_IDENTITIES['scheme_sha256']:
+        raise ValueError('Wrong dense source scheme')
     expected_layers = ({'layer2.0.conv1','layer2.0.conv2','layer2.0.downsample.0'} if mode=='downsample-block' else
                        {'fc'} if mode=='fc-smoke' else
-                       {r['layer'] for r in load_json(DEFAULT_PLAN)['layers'] if r['layer']!='conv1'})
+                       {r['layer'] for r in execution_plan(profile)['layers'] if r['layer']!='conv1'})
     if len(report['rtl_layers']) != len(expected_layers) or set(report['rtl_layers']) != expected_layers:
         raise ValueError('Missing or unexpected RTL layer coverage')
     stages = {s['layer']: s for s in report['stages']}
@@ -156,13 +160,13 @@ def verify(root, mode, domino_commit):
     if ([s['layer'] for s in report['stages']] != expected_order
             or len(report['blocks']) != len(expected_blocks)):
         raise ValueError('Incomplete or reordered network graph')
-    source_plan = {r['layer']: r for r in load_json(DEFAULT_PLAN)['layers']}
+    source_plan = {r['layer']: r for r in execution_plan(profile)['layers']}
     junit = 0
     for layer, stage in stages.items():
         source = load_json(root / (layer.replace('.','-') + '-fixture-manifest.json'))
         if (source['source_layer'] != layer or source['source_checkpoint_sha256'] != report['checkpoint_sha256']
                 or source['source_scheme_sha256'] != report['scheme_sha256'] or source['scheme'] != stage['scheme']
-                or source['source_packed_manifest_sha256'] != ingress['candidates']['mac20']['packed_manifest_sha256']):
+                or source['source_packed_manifest_sha256'] != model_source['packed_manifest_sha256']):
             raise ValueError('Wrong source checkpoint/scheme/layer identity')
         expected_backend = 'openeye-rtl' if layer in expected_layers else 'host-reference'
         if stage['backend'] != expected_backend:

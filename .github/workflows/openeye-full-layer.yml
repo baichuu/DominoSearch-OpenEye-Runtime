@@ -1,4 +1,4 @@
-name: OpenEye public hybrid network
+name: OpenEye original dense baseline
 'on':
   workflow_dispatch:
     inputs:
@@ -52,6 +52,7 @@ concurrency:
   group: openeye-full-layer-${{ github.ref }}-${{ inputs.scope == 'hybrid-network-resumable' && 'network-fc-smoke' || inputs.scope }}
   cancel-in-progress: false
 env:
+  OPENEYE_MODEL_PROFILE: dense-baseline-v1
   OPENEYE_PIN: 36395ddc530e106f06c50025a4069dd097688d8d
   CYCLE_WIDTH: "32"
   LIMIT_SIZE_IACT: "18"
@@ -59,7 +60,7 @@ env:
   LIMIT_SIZE_PSUM: "12"
   PYTHON_VERSION: '3.11'
   VERILATOR_VERSION: '5.052'
-  BUNDLE_REMOTE: domino-drive:DominoSearch-artifacts/deployment/packed-v1-3060cf7-20260824
+  BUNDLE_REMOTE: domino-drive:DominoSearch-runtime-private/dense-baseline-bundle-20261107-r1
   OPENEYE_NETWORK_PRIVATE_REMOTE: ${{ vars.OPENEYE_NETWORK_PRIVATE_REMOTE || 'domino-drive:DominoSearch-runtime-private' }}
   OPENEYE_NETWORK_PRIVATE_POLICY: ${{ vars.OPENEYE_NETWORK_PRIVATE_POLICY || 'owner-only' }}
 jobs:
@@ -86,6 +87,7 @@ jobs:
         RUNTIME_SPATIAL_SIZE: ${{ inputs.spatial_size }}
         RESUME_RUN_ID: ${{ inputs.resume_run_id }}
       run: |
+        python3 -c "from fpga.openeye.network_model_source import selected_model; assert selected_model() == 'dense-baseline-v1'"
         resume_args=()
         if [[ -n "$RESUME_RUN_ID" ]]; then
           [[ "$RUNTIME_SCOPE" == hybrid-network-resumable && "$RESUME_RUN_ID" =~ ^[1-9][0-9]*$ ]]
@@ -93,7 +95,7 @@ jobs:
           resume_args=(--resume-metadata "$RUNNER_TEMP/resume-run.json")
         fi
         python3 fpga/openeye/network_actions_preflight.py \
-          --scope "$RUNTIME_SCOPE" --architecture "$RUNTIME_ARCHITECTURE" \
+          --scope "$RUNTIME_SCOPE" --architecture "$RUNTIME_ARCHITECTURE" --model-profile "$OPENEYE_MODEL_PROFILE" \
           --spatial-size "$RUNTIME_SPATIAL_SIZE" --commit "$GITHUB_SHA" --pin "$OPENEYE_PIN" \
           --resume-run-id "$RESUME_RUN_ID" "${resume_args[@]}" \
           --private-remote "$OPENEYE_NETWORK_PRIVATE_REMOTE" --private-policy "$OPENEYE_NETWORK_PRIVATE_POLICY" \
@@ -121,7 +123,7 @@ jobs:
         path: ${{ runner.temp }}/network-preflight.json
         retention-days: 30
   residual:
-    name: MAC20 runtime gate ${{ matrix.gate }}
+    name: Dense runtime gate ${{ matrix.gate }}
     needs: runtime_preflight
     if: ${{ github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && (inputs.scope == 'residual-block-pilot' || inputs.scope == 'downsample-block-pilot' ||
       inputs.scope == 'network-fc-smoke' || inputs.scope == 'hybrid-network' || inputs.scope == 'hybrid-network-resumable') }}
@@ -217,6 +219,7 @@ jobs:
     - name: Retrieve immutable bundle
       run: |
         rclone copy --immutable --config "$RUNNER_TEMP/rclone.conf" "$BUNDLE_REMOTE" "$RUNNER_TEMP/packed-bundle"
+        printf '%s  %s\n' 3968648d57e511653083c6520e6135a09227cae3a3c1952a297a32ee21a5a1cf "$RUNNER_TEMP/packed-bundle/bundle-manifest.json" | sha256sum --check --strict
         printf '%s  %s\n' \
           b41ef3ce1bcf2440f68ae8ce0fdfff372fc1688002aa355992a128c7173d34e1 \
           "$RUNNER_TEMP/packed-bundle/mac20-packed-v1.tar" \
@@ -226,6 +229,8 @@ jobs:
           --directory "$RUNNER_TEMP/packed-bundle" --no-same-owner --no-same-permissions
         tar --extract --file "$RUNNER_TEMP/packed-bundle/mac23-packed-v1.tar" \
           --directory "$RUNNER_TEMP/packed-bundle" --no-same-owner --no-same-permissions
+        printf '%s  %s\n' 79176486ae0fb6d6aff13fd1f31fc90c0caa31fb69f64c7cb4f1e31125158860 "$RUNNER_TEMP/packed-bundle/dense-packed-v1.tar" | sha256sum --check --strict
+        tar --extract --file "$RUNNER_TEMP/packed-bundle/dense-packed-v1.tar" --directory "$RUNNER_TEMP/packed-bundle" --no-same-owner --no-same-permissions
     - name: Execute selected hybrid correctness runtime
       working-directory: DominoSearch
       env:
@@ -395,11 +400,14 @@ jobs:
     - name: Retrieve and verify immutable source archives
       run: |
         rclone copy --immutable --config "$RUNNER_TEMP/rclone.conf" "$BUNDLE_REMOTE" "$RUNNER_TEMP/packed-bundle"
+        printf '%s  %s\n' 3968648d57e511653083c6520e6135a09227cae3a3c1952a297a32ee21a5a1cf "$RUNNER_TEMP/packed-bundle/bundle-manifest.json" | sha256sum --check --strict
         printf '%s  %s\n' \
           b41ef3ce1bcf2440f68ae8ce0fdfff372fc1688002aa355992a128c7173d34e1 "$RUNNER_TEMP/packed-bundle/mac20-packed-v1.tar" \
           94bda0012422442ffa95812e07d1d1fc88384ebeaf5ae47381e30ed496cc5edd "$RUNNER_TEMP/packed-bundle/mac23-packed-v1.tar" | sha256sum --check --strict
         tar --extract --file "$RUNNER_TEMP/packed-bundle/mac20-packed-v1.tar" --directory "$RUNNER_TEMP/packed-bundle" --no-same-owner --no-same-permissions
         tar --extract --file "$RUNNER_TEMP/packed-bundle/mac23-packed-v1.tar" --directory "$RUNNER_TEMP/packed-bundle" --no-same-owner --no-same-permissions
+        printf '%s  %s\n' 79176486ae0fb6d6aff13fd1f31fc90c0caa31fb69f64c7cb4f1e31125158860 "$RUNNER_TEMP/packed-bundle/dense-packed-v1.tar" | sha256sum --check --strict
+        tar --extract --file "$RUNNER_TEMP/packed-bundle/dense-packed-v1.tar" --directory "$RUNNER_TEMP/packed-bundle" --no-same-owner --no-same-permissions
     - name: Execute or resume checked actual DUT block boundary
       env:
         OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}

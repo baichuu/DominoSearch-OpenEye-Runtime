@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from fpga.openeye.openeye_evidence_bundle import parse_key_values, parse_sha256s, sha256
 from fpga.openeye.prepare_packed_layer_fixture import DEFAULT_PLAN, load_json
+from fpga.openeye.network_model_source import selected_model, execution_plan, model_ingress
 from fpga.openeye.verify_network_evidence import verify, verify_layer, EXPECTED_OPENEYE_COMMIT
 
 COUNTERS = ('total_cycles', 'load_cycles', 'compute_cycles', 'stall_cycles',
@@ -72,9 +73,10 @@ def collect(root, commit):
         verify(root, report['mode'], commit)
     elif report['result'] != 'SEGMENT_PASS' or report.get('full_network_complete') is not False:
         raise ValueError('Invalid partial segment report')
-    source_plan = {r['layer']: r for r in load_json(DEFAULT_PLAN)['layers'] if r['layer'] != 'conv1'}
+    profile = selected_model(report.get('model_profile', 'mac20'))
+    source_plan = {r['layer']: r for r in execution_plan(profile)['layers'] if r['layer'] != 'conv1'}
     expected = list(source_plan)
-    ingress = load_json(root / 'ingress-verification.json')['candidates']['mac20']
+    ingress = model_ingress(load_json(root / 'ingress-verification.json'), profile)
     declared = report.get('rtl_layers', report.get('completed_rtl_stages', []))
     if len(declared) != len(set(declared)) or any(n not in expected for n in declared):
         raise ValueError('Duplicate or unknown RTL stage')
@@ -148,7 +150,7 @@ def collect(root, commit):
         host_totals.append(dict(phase=phase, operation=operation,
             calls=sum(r['calls'] for r in group), elements=sum(r['elements'] for r in group),
             wall_ns=sum(r['wall_ns'] for r in group)))
-    return dict(schema_version=1, result='AUDITED_MEASUREMENTS', domino_commit=commit,
+    return dict(schema_version=1, result='AUDITED_MEASUREMENTS', model_profile=profile, domino_commit=commit,
                 exporter_sha256=sha256(Path(__file__)),
                 openeye_commit=report['openeye_commit'], evidence_sha256=sha256(root / 'SHA256SUMS'),
                 scope=report.get('mode', 'completed-network-prefix'),

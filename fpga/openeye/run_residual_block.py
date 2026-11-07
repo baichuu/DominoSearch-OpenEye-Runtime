@@ -77,13 +77,15 @@ def bn_coefficients(accumulator, input_scale, weight_scale, alpha, beta, relu):
     return multiplier.astype(np.int64), bias.astype(np.int64), scale
 
 
-def source_activation(bundle, manifest, size, sample, timings=None):
+def source_activation(bundle, manifest, size, sample, timings=None, packed_candidate="mac20"):
     """Verified FP32 vector -> source stem on host -> block input CXY INT8.
 
     Source prefix is deliberately host FP64, not claimed to be OpenEye RTL.
     Smaller sizes are isolated crop probes with their own zero borders.
     """
-    packed = bundle / 'mac20/packed-v1'
+    if packed_candidate not in ('mac20', 'dense'):
+        raise ValueError('Unknown source candidate')
+    packed = bundle / packed_candidate / 'packed-v1'
     vector_root = bundle / 'mac20/test-vectors-100'
     vectors = load_json(vector_root / 'manifest.json')
     shape = vectors['input_shape']
@@ -97,7 +99,7 @@ def source_activation(bundle, manifest, size, sample, timings=None):
         raise ValueError('Input vector is nonfinite')
     row = packed_layer(manifest, 'conv1')
     if (row['n'], row['m']) != (4, 4) or row['metadata'] is not None:
-        raise ValueError('Host stem reconstruction requires the unchanged dense MAC20 conv1')
+        raise ValueError('Host stem reconstruction requires the unchanged dense source conv1')
     values = read_float32_le(verify_source_file(packed, row['values'], 'float32'))
     weights = np.asarray(conv_iohw(values, row['source_weight_shape'], row['grouping']['grouped_order']))
     alpha, beta, bn_identity = batchnorm(packed, manifest, 'bn1')

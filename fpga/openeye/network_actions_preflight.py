@@ -15,7 +15,9 @@ PRIVATE_REMOTE = 'domino-drive:DominoSearch-runtime-private'
 
 
 def plan(scope, architecture, spatial_size, commit, pin, resume_run_id='', resume_metadata=None,
-         private_remote=PRIVATE_REMOTE, private_policy='owner-only'):
+         private_remote=PRIVATE_REMOTE, private_policy='owner-only', model_profile='mac20'):
+    if model_profile not in ('mac20', 'dense-baseline-v1'):
+        raise ValueError('Unknown model profile')
     if scope not in RUNTIME_SCOPES:
         raise ValueError('Unknown runtime scope')
     if not re.fullmatch(r'[0-9a-f]{40}', commit) or not re.fullmatch(r'[0-9a-f]{40}', pin):
@@ -37,7 +39,7 @@ def plan(scope, architecture, spatial_size, commit, pin, resume_run_id='', resum
             raise ValueError('Resume requires a completed manual run of this workflow at the same execution commit; start a fresh chain after code/pin changes')
     elif resume_metadata is not None:
         raise ValueError('Unexpected resume metadata for a fresh chain')
-    return dict(schema_version=1, result='PREFLIGHT_PLAN_ONLY', scope=scope,
+    return dict(schema_version=1, result='PREFLIGHT_PLAN_ONLY', scope=scope, model_profile=model_profile,
                 domino_commit=commit, openeye_commit=pin,
                 full_network=scope in NETWORK_SCOPES,
                 architecture=architecture if scope in NETWORK_SCOPES else 'scope-specific',
@@ -59,11 +61,12 @@ def main():
     parser.add_argument('--resume-metadata', type=Path)
     parser.add_argument('--private-remote', default=PRIVATE_REMOTE)
     parser.add_argument('--private-policy', default='owner-only')
+    parser.add_argument('--model-profile', choices=('mac20','dense-baseline-v1'), default='mac20')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     metadata = json.loads(args.resume_metadata.read_text()) if args.resume_metadata else None
     result = plan(args.scope, args.architecture, args.spatial_size, args.commit,
-                  args.pin, args.resume_run_id, metadata, args.private_remote, args.private_policy)
+                  args.pin, args.resume_run_id, metadata, args.private_remote, args.private_policy, args.model_profile)
     args.output.write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))
 

@@ -22,6 +22,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from fpga.openeye.prepare_packed_layer_fixture import DEFAULT_PLAN, load_json, prepare, read_float32_le, sha256, verify_source_file
 from fpga.openeye.run_residual_block import batchnorm, bn_coefficients, digest, positive_scale, source_activation, write_json
+from fpga.openeye.network_model_source import selected_model, candidate_name, execution_plan, model_ingress, verify_dense_manifest
 from fpga.openeye.runtime_activations import activation_record, affine_fixed, convolution, dense, global_average_pool, residual_add, measured_host_call
 from fpga.openeye.verify_fpga_bundle import verify_bundle
 from fpga.openeye.network_checkpoint import FINAL_SEGMENT, STAGE_SEGMENTS
@@ -44,10 +45,10 @@ def resume_identity(manifest, input_identity, chain_id, packed_manifest_sha256):
         raise ValueError('Resumable network requires clean execution checkout')
     names = ('run_network_inference.py', 'network_checkpoint.py', 'network_layer_tiles.py',
              'runtime_activations.py', 'run_residual_block.py', 'prepare_packed_layer_fixture.py',
-             'run_wrapper_conv_regression.sh', 'verify_network_evidence.py')
+             'run_wrapper_conv_regression.sh', 'verify_network_evidence.py', 'network_model_source.py')
     return dict(domino_commit=subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(),
                 execution_repository='baichuu/DominoSearch-OpenEye-Runtime',
-                chain_id=chain_id, openeye_commit=EXPECTED_OPENEYE_COMMIT,
+                chain_id=chain_id, model_profile=selected_model(), openeye_commit=EXPECTED_OPENEYE_COMMIT,
                 architecture='full-layer-r3', checkpoint_sha256=manifest['checkpoint']['sha256'],
                 checkpoint_schema_version=2, segment_count=FINAL_SEGMENT + 1,
                 scheme_sha256=manifest['scheme']['sha256'], packed_manifest_sha256=packed_manifest_sha256,
@@ -70,7 +71,7 @@ class Runtime:
         if not np.array_equal(a, ref_a):
             raise AssertionError('Forwarded activation differs before ' + layer)
         identifier = layer.replace('.', '-')
-        plan = load_json(DEFAULT_PLAN)
+        plan = execution_plan(selected_model())
         for row in plan['layers']:
             if row['layer'] == layer and row['type'] == 'conv2d':
                 row['input_width'], row['input_height'] = a.shape[1:]
@@ -218,10 +219,15 @@ def execute(args):
         dirty = subprocess.check_output(['git','-C',str(args.openeye_root),'status','--short'],text=True).strip()
         if pin != EXPECTED_OPENEYE_COMMIT or dirty:
             raise ValueError('Require clean pinned OpenEye checkout')
-    packed = bundle / 'mac20/packed-v1'
+    profile = selected_model()
+    if profile != 'mac20':
+        model_ingress(ingress, profile)
+    packed = bundle / candidate_name(profile) / 'packed-v1'
     manifest = load_json(packed / 'manifest.json')
+    verify_dense_manifest(manifest, profile)
     stem_host_operations = []
-    a, scale, input_identity = source_activation(bundle, manifest, args.spatial_size, args.sample, stem_host_operations)
+    source_args = {} if profile == 'mac20' else dict(packed_candidate=candidate_name(profile))
+    a, scale, input_identity = source_activation(bundle, manifest, args.spatial_size, args.sample, stem_host_operations, **source_args)
     ref_a = a.copy()
     segment = getattr(args, 'segment_index', None)
     context_path = getattr(args, 'resume_context_only', None)
@@ -291,7 +297,7 @@ def execute(args):
         validate_state(state, identity, segment + 1)
         validate_prefix_evidence(evidence, state)
         write_json(private / 'network-state.json', state)
-        summary = dict(result='SEGMENT_PASS', completed_segment=segment,
+        summary = dict(result='SEGMENT_PASS', model_profile=profile, completed_segment=segment,
                        domino_commit=identity['domino_commit'], openeye_commit=EXPECTED_OPENEYE_COMMIT,
                        ingress_verified_utc=ingress['verified_utc'],
                        completed_blocks=[b['block'] for b in runtime.blocks],
@@ -324,7 +330,7 @@ def execute(args):
                           fc_bias_sha256=records[0]['sha256'])
         if gap_report['forwarded_int8_sha256'] != runtime.stages[-1]['input_sha256']:
             raise AssertionError('FC did not consume real GAP output')
-    report = dict(schema_version=1, mode=args.mode, result='HOST_REFERENCE_ONLY' if args.reference_only else 'PASS',
+    report = dict(schema_version=1, model_profile=profile, mode=args.mode, result='HOST_REFERENCE_ONLY' if args.reference_only else 'PASS',
                   claim_level='hybrid-resnet18-debug-correctness-not-full-rtl-not-accuracy-not-board',
                   openeye_commit=EXPECTED_OPENEYE_COMMIT,
                   ingress_verified_utc=ingress['verified_utc'],
