@@ -149,3 +149,11 @@ Report `100*(cycles_dense-cycles_MAC20)/cycles_dense` only after both full runs
 pass independent evidence audits. Load/processing/traffic reductions stay
 separate from theoretical MAC reduction and host/simulator wall time. No new
 ImageNet accuracy, physical timing, power or board result is implied.
+
+
+Run42374896479 completes both dense runtime gates, then fails before segment0
+RTL because fabricated legacy checkpoint unit fixtures inherited the dense
+selector. The fixture-test step now explicitly selects mac20 and also runs
+model-admission controls; every actual runtime step still selects dense. The
+new workflow execution must start a fresh chain with its own gates. No numeric
+checker, runtime arithmetic, source weights or model profile was relaxed.

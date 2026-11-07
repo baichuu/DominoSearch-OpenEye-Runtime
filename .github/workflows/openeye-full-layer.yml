@@ -371,8 +371,12 @@ jobs:
         verilator --version | grep -F "Verilator $VERILATOR_VERSION"
     - name: Verify checkpoint negative controls
       working-directory: DominoSearch
+      env:
+        # These are fabricated legacy MAC20 state fixtures, not dense DUT data.
+        # Real runtime/gates keep the workflow's dense-baseline-v1 selection.
+        OPENEYE_MODEL_PROFILE: mac20
       run: ../OpenEye/.venv/bin/python -m pytest -q tests/test_network_checkpoint.py tests/test_network_stage_resume.py tests/test_network_drive_access.py tests/test_public_evidence.py
-        tests/test_public_runtime_export.py
+        tests/test_public_runtime_export.py tests/test_network_model_source.py
     - name: Download downsample gate attempts from this dispatch
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
       with:

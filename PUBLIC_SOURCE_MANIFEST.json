@@ -169,9 +169,17 @@
       "fpga/openeye/run_residual_block.py": "8074cfcee4c9839a3d02e77b64ac8704d6d2d36020ae35c673ec625c999054e7",
       "fpga/openeye/verify_network_evidence.py": "3a53df951bdde5a42e01736065943b89f769caecd6e232d9bab2dbb6126b4ad7",
       "fpga/openeye/export_network_measurements.py": "94296ec28230eb3bc76db50532ab422ac4ca1f4c8838510fea10806f06782ba7",
-      "tests/test_network_model_source.py": "f53fde4287629faf2eb9622686b4866a58b8deff70a5897726edf968e8e72ba4",
-      ".github/workflows/openeye-full-layer.yml": "5c41d608b9be9aa447db9e35083711e9dc10c04d5638d68f3aea7702f1a34aff",
+      "tests/test_network_model_source.py": "efac30d60717403453104185b52e6b46edd7e8a3fd8d3d5ab3bed97cab5a530f",
+      ".github/workflows/openeye-full-layer.yml": "edb9da800398c46143cf04071d546087d77d690fbaa40ccd22e74bab887d547b",
       "fpga/openeye/network_actions_preflight.py": "8d99b75fa757f45b309986d6c48f5e1d13ffb250c0b36ea93b4c68460d7526d4"
     }
+  },
+  "dense_baseline_fixture_environment_fix": {
+    "failed_run_id": 42374896479,
+    "failed_execution": "ed17bc52796cf71ae4dd70dbf30f1ae5a7e5b0a9",
+    "phase": "before segment0 RTL",
+    "cause": "Legacy fabricated MAC20 checkpoint fixtures inherited dense runtime selector",
+    "fix": "Scope mac20 selector only to checkpoint unit-test step; dense DUT and all checkers unchanged",
+    "runtime_changed": false
   }
 }

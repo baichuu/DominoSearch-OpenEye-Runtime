@@ -76,3 +76,21 @@ def test_dense_preflight_records_model_without_claiming_rtl():
     assert p['requires_same_dispatch_gates'] and not p['rtl_executed']
     with pytest.raises(ValueError):
         plan('hybrid-network-resumable','full-layer-r3','56','a'*40,'b'*40,model_profile='typo')
+
+
+def test_ci_scopes_legacy_fixture_profile_without_changing_dense_dut_selection():
+    import yaml
+    workflow=yaml.safe_load((Path(__file__).resolve().parents[1]/'.github/workflows/openeye-full-layer.yml').read_text())
+    assert workflow['env']['OPENEYE_MODEL_PROFILE']==DENSE_PROFILE
+    seen=0
+    for job in workflow['jobs'].values():
+        for step in job['steps']:
+            profile=step.get('env',{}).get('OPENEYE_MODEL_PROFILE')
+            if step['name']=='Verify checkpoint negative controls':
+                assert profile=='mac20'
+                assert 'tests/test_network_model_source.py' in step['run']
+                seen+=1
+            elif profile is not None:
+                assert profile==DENSE_PROFILE
+    assert seen==sum(name.startswith('network_segment_')for name in workflow['jobs'])
+    assert seen==12
