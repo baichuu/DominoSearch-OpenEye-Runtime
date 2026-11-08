@@ -1,0 +1,12 @@
+diff --git a/hdl/af_cluster.v b/hdl/af_cluster.v
+--- a/hdl/af_cluster.v
++++ b/hdl/af_cluster.v
+@@ -68,7 +68,7 @@
+             // new samples.
+             for (lane = 0; lane < VECTOR_SIZE; lane = lane + 1) begin
+                 if (relu_en_i) begin
+-                    if (input_lane[lane] < 0) begin
++                    if (input_lane[lane][WIDTH-1]) begin
+                         pipeline_reg[0][lane] <= {WIDTH{1'b0}};
+                     end else begin
+                         pipeline_reg[0][lane] <= input_lane[lane];

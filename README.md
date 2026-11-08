@@ -1,5 +1,11 @@
 # DominoSearch OpenEye runtime
 
+New separate experiment: [clocked whole-network dense/MAC20/optimized comparison](clocked_runtime/README.md)
+uses verified pin `9a742fb` and manual workflow `openeye-clocked-network.yml`.
+It measures an actual image-to-Q40-logit RTL timeline. Dispatch/local gates
+alone do not establish full-network PASS. Historical hybrid evidence below
+keeps its original pin, arithmetic and scope.
+
 Standalone public runner for the FPGA correctness evaluation of layer-wise
 mixed N:M pruning. The main research repository and its history remain private.
 This repository contains selected runtime code, maintained compatibility patches,
@@ -14,7 +20,7 @@ not grant a new license for code without an explicit license.
 
 ## Running
 
-The only workflow entry point is manual `hybrid-network-resumable`, r3,
+The historical hybrid entry point is manual `hybrid-network-resumable`, r3,
 original 56x56 stem geometry. GitHub standard Ubuntu runners are used. Both
 same-dispatch, same-commit downsample/FC gates must pass before the network jobs.
 There are six block jobs followed by five layer4 stage jobs and final GAP/FC.

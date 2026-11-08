@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "experiment": "whole-network-int8-fixedpoint-v1",
+  "ready_for_dispatch": true,
+  "openeye_pin": "9a742fbd42a55ebfa8fcd39aa41dfa36a367572f",
+  "arithmetic_contract_sha256": "73f66a5e5efd0dee3e02fe823e161b14822d17df39198e805087e9211e6571c3",
+  "signed_image_rom_sha256": "218a832f33bab19f651b41de2b4e92b29e636f6a4d29c8a369354a3948ebf659",
+  "private_release_folder": "clocked-three-way-20261109-r2",
+  "profiles": {
+    "dense": {
+      "model": "dense",
+      "optimized": false,
+      "archive_name": "dense-clocked-inputs.tar.gz",
+      "archive_bytes": 151048376,
+      "archive_sha256": "a87be9a30b79b31ea9a0c0c3529b98a3f4f10177213006816f29b2a7d5724b1f",
+      "graph_preparation_sha256": "9d19b73f7cd9b2c5ccfeaa826a78614271118176eccf0a5513f3519596888bf4",
+      "gate_preparation_sha256": "0ce58ba6c77caefe1359c1bf093404288d03c6f3dabb006fd1680a8c91551778",
+      "commands": 3752
+    },
+    "mac20": {
+      "model": "mac20",
+      "optimized": false,
+      "archive_name": "mac20-clocked-inputs.tar.gz",
+      "archive_bytes": 140860387,
+      "archive_sha256": "c1a00d7030de372f17ddc36d3a1f415a8dfb7a2cb0de010baf2ba33dcbd2d8a3",
+      "graph_preparation_sha256": "3d4a805ac8522354ce2ad36ede227e55fcfcde431a0fe9e873fea976042d54fe",
+      "gate_preparation_sha256": "d6b64e84b1a0ef9b9bc17a2e7fbd8b0e06715e11fc078838bc6c095b3ef41853",
+      "commands": 3752
+    },
+    "optimized": {
+      "model": "mac20",
+      "optimized": true,
+      "archive_name": "optimized-clocked-inputs.tar.gz",
+      "archive_bytes": 137204584,
+      "archive_sha256": "328624c75859c5598362c51a0812b179d5c207dc32618680011e49a95dce9e95",
+      "graph_preparation_sha256": "07f3be0a6236e8102c835a60e762253db60481796232844bd5bb776072bfc21d",
+      "gate_preparation_sha256": "b630283a106ab88052bff45aa8533638a841448d9bbc5f124c7d7ffabc40874d",
+      "commands": 2376
+    }
+  },
+  "local_native_protocol_gates": {
+    "dense": {
+      "result": "PASS_ACTUAL_CONV_TO_NATIVE_FC_PROTOCOL_GATE",
+      "checked_convolution_postops_values": 25088,
+      "checked_fc_logits": 8,
+      "binary_sha256": "c9aae0e66b29bb7d6b1b07f156493d0f315871b0c4560ccb34121ffdfeae76a0",
+      "preparation_sha256": "0ce58ba6c77caefe1359c1bf093404288d03c6f3dabb006fd1680a8c91551778"
+    },
+    "mac20": {
+      "result": "PASS_ACTUAL_CONV_TO_NATIVE_FC_PROTOCOL_GATE",
+      "checked_convolution_postops_values": 25088,
+      "checked_fc_logits": 8,
+      "binary_sha256": "c9aae0e66b29bb7d6b1b07f156493d0f315871b0c4560ccb34121ffdfeae76a0",
+      "preparation_sha256": "d6b64e84b1a0ef9b9bc17a2e7fbd8b0e06715e11fc078838bc6c095b3ef41853"
+    },
+    "optimized": {
+      "result": "PASS_ACTUAL_CONV_TO_NATIVE_FC_PROTOCOL_GATE",
+      "checked_convolution_postops_values": 50176,
+      "checked_fc_logits": 8,
+      "binary_sha256": "da48556e8e1ecf74d08e66b7c91c2ab6642849499d8d447f51839e0c593da077",
+      "preparation_sha256": "b630283a106ab88052bff45aa8533638a841448d9bbc5f124c7d7ffabc40874d"
+    }
+  },
+  "mac20_optimization_arithmetic_identity": {
+    "source_reference_graph_sha256": "ea9ae2d2e5afbe3f1a46f2733650d20fa99831981b51a416ec56f3e2159c8d06",
+    "source_stem_sha256": "9f93e3d65189b0a1f381cbd4922315a3b962ffd28da04ecccfb075f1476f2fb8",
+    "golden_sha256": "20fcc3325e03ced30726c20db95e0a0e90d7b15cbbb9be2ee42d95dead9ad280",
+    "affine_coefficients_sha256": "32af43744c61afc0db4eb53f037fc62a4c613a2ec44340bb2d62afe6ddbdb297"
+  },
+  "full_network_rtl_pass": false,
+  "full_network_cycles": null,
+  "local_admission_checks": {
+    "baseline_geometry": {
+      "result": "PASS_ACTUAL_CLOCKED_GEOMETRY_GATE",
+      "openeye_pin": "9a742fbd42a55ebfa8fcd39aa41dfa36a367572f",
+      "checked_raw_words": 12288,
+      "checked_postop_values": 16856,
+      "binary_sha256": "65aa1170caf7702412f91fe9929a907e28ac7480cb1e485b5a67f4a0dcf5133a",
+      "real_rtl_junit": 1
+    },
+    "optimized_geometry": {
+      "result": "PASS_ACTUAL_CLOCKED_GEOMETRY_GATE",
+      "openeye_pin": "9a742fbd42a55ebfa8fcd39aa41dfa36a367572f",
+      "checked_raw_words": 24576,
+      "checked_postop_values": 33712,
+      "binary_sha256": "b724b3dcf079b682efc72e18f72df41a7e3f4722aa7c4e7bfc3b0863e6f680dc",
+      "real_rtl_junit": 1
+    },
+    "image_to_first_convolution": {
+      "result": "PASS_INDEPENDENT_CONNECTED_CONV_POSTOPS_AUDIT",
+      "openeye_pin": "9a742fbd42a55ebfa8fcd39aa41dfa36a367572f",
+      "checked_outputs": 25088,
+      "checked_raw_dma_words": 16128,
+      "latency_cycles": 119533168,
+      "binary_sha256": "c0b8e61dc839fbfa4bd06a6701b09ff07546a52567317eea5e4a070fd3e56814",
+      "preparation_sha256": "b58527c277ec2c47cac89b9f56bb99d937111c4a6709f8f7ec8d798f92ddbe26",
+      "real_rtl_junit": 1
+    }
+  },
+  "correctness_policy": "Common far32 padding for original28 stride2; optimized retains zero values and sparse address tags only on K3 stride2 with height32. Other verified optimizations remain enabled.",
+  "arithmetic_note": "Single verification vector debugging, separate from historical hybrid accuracy and cycles; not ImageNet accuracy or physical FPGA timing."
+}

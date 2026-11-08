@@ -1,0 +1,126 @@
+name: OpenEye clocked whole network
+run-name: Clocked ${{ inputs.profile }} · INT8 fixed-point · pin9a
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Matched image-to-logit RTL experiment
+        required: true
+        default: dense
+        type: choice
+        options: [dense, mac20, optimized]
+permissions:
+  contents: read
+concurrency:
+  group: openeye-clocked-${{ github.ref }}-${{ inputs.profile }}
+  cancel-in-progress: false
+env:
+  OPENEYE_PIN: 9a742fbd42a55ebfa8fcd39aa41dfa36a367572f
+  VERILATOR_VERSION: '5.052'
+  PYTHON_VERSION: '3.11'
+jobs:
+  whole_network:
+    if: github.repository == 'baichuu/DominoSearch-OpenEye-Runtime'
+    name: ${{ inputs.profile }} · real same-core gate then full graph
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out exact public runtime commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: Runtime
+          persist-credentials: false
+      - name: Check out pinned upstream for source and PE controls
+        uses: actions/checkout@v4
+        with:
+          repository: Learning-Chips-Lab/OpenEye
+          ref: ${{ env.OPENEYE_PIN }}
+          path: OpenEye
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install simulation and immutable-input tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog make patch rclone
+          python -m venv OpenEye/.venv
+          OpenEye/.venv/bin/python -m pip install -r Runtime/clocked_runtime/fpga/openeye/requirements-clocked.txt
+      - name: Set up pinned Verilator
+        uses: veryl-lang/setup-verilator@b155747595eb4b817473a83045ba1da581c4084b
+        with:
+          version: ${{ env.VERILATOR_VERSION }}
+      - name: Verify exact pin and controller rejection controls
+        working-directory: Runtime/clocked_runtime
+        env:
+          OPENEYE_NEW_PIN_ROOT: ${{ github.workspace }}/OpenEye
+        run: |
+          test "$(git -C ../../OpenEye rev-parse HEAD)" = "$OPENEYE_PIN"
+          test -z "$(git -C ../../OpenEye status --short)"
+          verilator --version | grep -F "Verilator $VERILATOR_VERSION"
+          ../../OpenEye/.venv/bin/python -m pytest -q tests/test_clocked_graph_validation.py tests/test_clocked_release_ingress.py tests/test_clocked_pooling_ring.py tests/test_graph_engine_rtl.py tests/test_retain_zero_sparse_format_rtl.py tests/test_network_cycle_monitor_rtl.py tests/test_openeye_output_frame_buffer_rtl.py
+      - name: Verify PE controls on the same pinned source
+        working-directory: Runtime/clocked_runtime
+        run: fpga/openeye/run_pe_smoke.sh ../../OpenEye "$RUNNER_TEMP/pinned-pe-smoke.log"
+      - name: Retrieve authenticated owner-only model inputs
+        working-directory: Runtime/clocked_runtime
+        env:
+          DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+          CLOCKED_PROFILE: ${{ inputs.profile }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/public-evidence"
+          python fpga/openeye/prepare_ci_rclone_config.py --output "$RUNNER_TEMP/clocked-rclone.conf"
+          ../../OpenEye/.venv/bin/python fpga/openeye/clocked_release_ingress.py --release fpga/openeye/clocked-release.json --profile "$CLOCKED_PROFILE" --config "$RUNNER_TEMP/clocked-rclone.conf" --output "$RUNNER_TEMP/clocked-inputs" > "$RUNNER_TEMP/private-ingress.log" 2>&1
+          cp "$RUNNER_TEMP/clocked-inputs/ingress-public.json" "$RUNNER_TEMP/public-evidence/ingress.json"
+      - name: Run actual convolution to FC gate before full network
+        working-directory: Runtime/clocked_runtime
+        run: |
+          set +e
+          ../../OpenEye/.venv/bin/python fpga/openeye/run_graph_program.py --root "$RUNNER_TEMP/clocked-inputs/gate" > "$RUNNER_TEMP/private-gate-driver.log" 2>&1
+          status=$?
+          set -e
+          printf 'Actual native-core gate simulator exit status: %s\n' "$status"
+          exit "$status"
+      - name: Audit every raw gate value and forwarded output
+        working-directory: Runtime/clocked_runtime
+        run: |
+          set +e
+          ../../OpenEye/.venv/bin/python fpga/openeye/audit_graph_transition_gate.py --root "$RUNNER_TEMP/clocked-inputs/gate" --output "$RUNNER_TEMP/public-evidence/gate" > "$RUNNER_TEMP/private-gate-audit.log" 2>&1
+          status=$?
+          set -e
+          printf 'Independent actual-core gate audit exit status: %s\n' "$status"
+          exit "$status"
+      - name: Execute image to logits on one uninterrupted RTL clock
+        working-directory: Runtime/clocked_runtime
+        run: |
+          set +e
+          ../../OpenEye/.venv/bin/python fpga/openeye/run_graph_program.py --root "$RUNNER_TEMP/clocked-inputs/graph" > "$RUNNER_TEMP/private-network-driver.log" 2>&1
+          status=$?
+          set -e
+          printf 'Full graph simulator exit status: %s\n' "$status"
+          exit "$status"
+      - name: Independently audit graph and export cycle tables
+        working-directory: Runtime/clocked_runtime
+        run: |
+          set +e
+          ../../OpenEye/.venv/bin/python fpga/openeye/audit_clocked_graph.py --root "$RUNNER_TEMP/clocked-inputs/graph" --bundle-root "$RUNNER_TEMP/clocked-inputs/bundle" --output "$RUNNER_TEMP/public-evidence/network" > "$RUNNER_TEMP/private-network-audit.log" 2>&1
+          status=$?
+          set -e
+          printf 'Independent full graph audit exit status: %s\n' "$status"
+          exit "$status"
+      - name: Seal allowlisted public evidence only
+        if: always()
+        working-directory: Runtime/clocked_runtime
+        env:
+          CLOCKED_PROFILE: ${{ inputs.profile }}
+        run: python fpga/openeye/seal_clocked_public_evidence.py --root "$RUNNER_TEMP/public-evidence" --output "$RUNNER_TEMP/public-artifact" --profile "$CLOCKED_PROFILE" --execution-commit "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
+      - name: Upload counters tables and real JUnit only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-network-${{ inputs.profile }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/public-artifact
+          if-no-files-found: error
+          retention-days: 30

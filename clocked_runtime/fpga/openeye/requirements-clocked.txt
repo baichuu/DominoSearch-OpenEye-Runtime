@@ -1,0 +1,6 @@
+# Frozen graph execution has no training-framework dependency.
+numpy==2.4.6
+PyYAML==6.0.3
+pytest==9.1.1
+cocotb==2.1.0
+cocotb-test==0.2.6

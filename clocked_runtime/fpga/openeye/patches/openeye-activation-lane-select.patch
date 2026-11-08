@@ -1,0 +1,15 @@
+diff --git a/hdl/af_cluster.v b/hdl/af_cluster.v
+--- a/hdl/af_cluster.v
++++ b/hdl/af_cluster.v
+@@ -84,9 +84,9 @@
+     genvar gv;
+     generate
+         for (gv = 0; gv < VECTOR_SIZE; gv = gv + 1) begin : gen_data_o
+-            assign input_lane[gv] = data_i[WIDTH*gv:+WIDTH];
++            assign input_lane[gv] = data_i[WIDTH*gv+:WIDTH];
+             assign output_lane[gv] = pipeline_reg[DEPTH-1][gv];
+-            assign data_o[WIDTH*gv:+WIDTH] = output_lane[gv];
++            assign data_o[WIDTH*gv+:WIDTH] = output_lane[gv];
+         end
+     endgenerate
+ 
