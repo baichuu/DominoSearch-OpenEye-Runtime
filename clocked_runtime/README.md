@@ -62,3 +62,22 @@ Save/restore local controls preserve all output/accepted/raw/forwarded bytes:
 and 3,326,501 across seven geometry sites / four processes. An authenticated
 whole-model stem snapshot restored into a new directory also passes the full
 first convolution (200,704 values). These are bounded controls, not network PASS.
+
+
+## Corrected zero-rich convolution path
+
+The original optimized run 42515583049 fails the independent numeric audit.
+Local connected-prefix diagnosis identifies layer1.1.conv1 after a verified
+residual. An isolated original command fails 32 of 32,256 raw words; preserving
+zero activation values with sparse position/address metadata passes the same
+unchanged input, weights, mask, mapping and golden. Runtime K3 convolutions now
+use that correctness fallback; native FC and other optimizations are preserved.
+Sparse-anchor skipping is not admitted for this connected-network experiment.
+
+User-requested cancellation of old MAC20 run 42515574607 is preserved as cancelled.
+Old dense run 42515554294 retains its independently audited 415,099,249 cycles;
+it is not reassigned to new execution commits. New chains require fresh gates.
+All profiles use the same signed image, fixed-point arithmetic and effective
+numeric architecture parameters. Results cover one verification vector and
+modeled ROM/SRAM interfaces; they are not external DDR/AXI or board latency.
+Numeric failures expose fixed codes/instruction offsets, never operands.

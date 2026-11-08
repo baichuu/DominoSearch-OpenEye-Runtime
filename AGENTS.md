@@ -51,3 +51,21 @@ negative controls and validate generated public copies before publication.
 Checkpoints use v2, segments0..5 are completed blocks,6..10 are checked layer4
 stages with original skip retained,11 is final GAP/FC audit. Failed/skipped or
 incomplete work cannot be certified as PASS. Read README.md before changes.
+
+
+### Zero-rich correctness revalidation, 2026-11-09
+
+User cancels old remaining MAC20 run42515574607 and authorizes fresh dense,
+MAC20 and optimized dispatches after source/numeric validation. Preserve old
+cancelled/FAIL/PASS identities. Sparse-anchor original fails32raw words at
+layer1.1.conv1 after a verified residual. The correctness fallback now retains
+zero values for every runtime K3 convolution while preserving sparse tags and
+native FC. Do not restore anchor skipping without separate connected evidence.
+All other optimizations and immutable source weights/masks/arithmetic remain.
+All3 archives/members/input/contract verified; effective numeric architecture
+parameters match (common explicit STRIDE_ENABLED=1 overrides header defaults).
+Reports cover one verification vector, modeled ROM/synchronous SRAM and actual
+RTL counters, not external DDR/AXI contention, accuracy or measured board latency.
+Safe failure codes/coordinates may be public; no operands or raw exception body.
+Fresh resumable chains use one public commit, own gates and private snapshots;
+never import old-commit boundaries or label dispatch/prefix as network PASS.

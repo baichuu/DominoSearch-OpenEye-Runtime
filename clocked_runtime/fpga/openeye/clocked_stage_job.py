@@ -121,12 +121,16 @@ def checked_prefixes(root):
     return checked
 
 
-def publish_progress(args,phase,status,checkpoint,cipher_hash,checked):
+def publish_progress(args,phase,status,checkpoint,cipher_hash,checked,failure=None):
     args.public.mkdir(parents=True,exist_ok=True)
     report=dict(result='CHECKED_PREFIX_NOT_NETWORK_PASS'if checked else'UNVERIFIED_EXECUTION_SNAPSHOT_NOT_STAGE_PASS',
         profile=args.profile,phase=args.phase,phase_name=phase['name'],slot=args.slot,
         phase_execution_complete=status,checkpoint_sha256=cipher_hash,numeric_prefix_checked=checked,
         full_network_rtl_pass=False,full_network_cycles=None)
+    if failure is not None:
+        report['result']='FAIL_NUMERIC_PREFIX_AUDIT'
+        for key in('failure_code','failure_instruction','failure_word_offset'):
+            if key in failure:report[key]=failure[key]
     (args.public/'progress.json').write_text(json.dumps(report,indent=2)+'\n')
     output=os.environ.get('GITHUB_OUTPUT')
     require(output is not None,'Actions output path required')
@@ -176,7 +180,9 @@ def stage(args):
     output=args.workspace.parent/name;digest=seal(root,output,ctx,key_from_environment())
     response=subprocess.run(['rclone','copyto','--immutable','--config',str(args.config),str(output),remote_name+'/'+name],capture_output=True,text=True)
     require(response.returncode==0,'Private authenticated snapshot upload failed')
-    publish_progress(args,phase,done and audit_error is None,name,digest,done and audit_error is None and args.phase<20)
+    from fpga.openeye.audit_clocked_graph import failure_report
+    publish_progress(args,phase,done and audit_error is None,name,digest,done and audit_error is None and args.phase<20,
+                     failure_report(audit_error)if audit_error is not None else None)
     if audit_error is not None:raise ValueError('Numeric prefix audit failed; exact private failed state preserved without stage PASS')from audit_error
     if not done and args.slot==2:raise ValueError('Stage saved before time budget; rerun failed jobs continues this exact snapshot')
 

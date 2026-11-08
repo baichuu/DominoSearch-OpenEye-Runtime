@@ -49,3 +49,21 @@ def retain_zeros_for_bounded_stride2(root):
     files[name]=text.replace('(!SPARSITY_EN)','(!SPARSITY_EN || research_retain_zero_values_i)',3)
     if 'if (!SPARSITY_EN) begin'not in files[name]:raise ValueError('Sparse address metadata must remain enabled')
     for name,text in files.items():(root/'hdl'/name).write_text(text)
+
+
+def retain_zeros_for_clocked_convolution(root):
+    """Correctness fallback for zero-rich connected-model convolution inputs.
+
+    The position-zero anchor passes limited controls but fails layer1.1.conv1
+    after a verified residual. Preserve values, including zeros, for all K3
+    commands while retaining the sparse position/address format. Native FC is
+    unchanged. All clocked projections use center-embedded K3 commands.
+    """
+    retain_zeros_for_bounded_stride2(root)
+    path=Path(root)/'hdl/OpenEye_FPGA.v';text=path.read_text()
+    previous='.research_retain_zero_values_i(!fully_connected_layer && kernel_size_x == 3 && stride_x == 2 && iact_size_y == 32),'
+    corrected='.research_retain_zero_values_i(!fully_connected_layer && kernel_size_x == 3),'
+    if text.count(corrected)==1 and previous not in text:return
+    if text.count(previous)!=1 or corrected in text:
+        raise ValueError('Unknown clocked convolution zero-retention binding')
+    path.write_text(text.replace(previous,corrected))

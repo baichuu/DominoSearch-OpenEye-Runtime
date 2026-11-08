@@ -1,9 +1,9 @@
 {
-  "private_source_head": "30931ea2e78bdf2e43f4d3a0f7153ee114d13d11",
-  "source_state": "Explicit reviewed source export for save-restore; no private history or model data",
+  "private_source_head": "519976ffbdfc3874c2607c55a5efe839cfcfc77a",
+  "source_state": "Reviewed zero-rich convolution correctness fix; no private history or model data",
   "workflow_sha256": "cfe130638c64447e0e4ef3a8cf550d8bf011277dafd95ba0a7ab851ace5c6d83",
   "files": {
-    "README.md": "91a28ed8778d98a59057d8d031a4e99cce706e3230c19974fb39de608e10ddad",
+    "README.md": "33ca570935f7cac1b4b3a21c3d41c4fab76dac822e7d9799ed9e9f594b0659cd",
     "tests/test_openeye_output_frame_buffer_rtl.py": "80a0af9a28d1636c7fc9d22d239ce928e15c7beb20eaaee3f1444b0b51faf0d0",
     "tests/test_clocked_graph_validation.py": "0b98bd517db86b806dbf9649daed2b54ff82d478f639851095fd3fb6f0816f8b",
     "tests/test_clocked_pooling_ring.py": "689b3ceedde18219350807f46cefa230b5cb80b88f01a909f79230796ca5fe95",
@@ -24,18 +24,18 @@
     "fpga/openeye/verify_fpga_bundle.py": "72a81f769fc8120febae1f19d9db5f52278397e68bbceb184689f435a82db490",
     "fpga/openeye/run_residual_block.py": "040ce7e5ec08c0d61f933a57fa98f5a7b3abc5e7f11adc989cfffa0a9fdac653",
     "fpga/openeye/requirements-clocked.txt": "0800b41fefae7de3d3fb04b22239f44e6eb19242135b7a651920a5a1be810fda",
-    "fpga/openeye/clocked_core_compat.py": "c26b9751fcf53716502552c2e818c63920d1e6dd9d63224bc6270103927ff1ff",
+    "fpga/openeye/clocked_core_compat.py": "09efda8da84cda83212e12967fff9ef9a5d92e76120e0f81d6d25df024e2f0ec",
     "fpga/openeye/runtime_activations.py": "84d716ddd386637ba4bc4ce93ff86775fabc7e18281e50ad774e1b21c254dcf7",
     "fpga/openeye/rtl_activation.py": "605c0decf2a121bda7ff7e444f214c711c031fe1bf6c9f4453a835a2da7a671e",
-    "fpga/openeye/audit_clocked_graph.py": "bcc436b68d2859047840c14bc0cfc8b35d4bc66036d119ba97a683a8a5f4b71f",
+    "fpga/openeye/audit_clocked_graph.py": "c8b17d22a62d0aadcb2070f834c3c3d44f92fa44a2de43f9e3680c843264ccb2",
     "fpga/openeye/prepare_packed_layer_fixture.py": "28241a6d8e2f5e3ba468f95af46efd7b750e9be1fb5456e9c2edb619f889e8fb",
     "fpga/openeye/rtl_stem.py": "5d2cbc8f6d49efc29c64462d63891b329f6f9e9faf24a43d240a727d92e6f095",
     "fpga/openeye/graph_layout.py": "24e6bd7dce285bc8a7f6f9610dc50c200314d69f46cbf5fa93378a253e82cb5f",
     "fpga/openeye/clocked-release.json": "d1d08ee8ea33e063879881d4ffc28a69820f3d4a9ab71281a717b9eb94a557a2",
-    "fpga/openeye/seal_clocked_public_evidence.py": "e90684e6857415d7c76c2954c40e8682f69f2f93ccf2956de3543a9cc4b3404e",
+    "fpga/openeye/seal_clocked_public_evidence.py": "fe0723488c23915277d0ef17a5d7514724b0a1d95b6ca164fb81c2d2c349e453",
     "fpga/openeye/prepare_ci_rclone_config.py": "c77e85615bd5d7eef1e7a344a09fe860e25dee0e93b7b354f8af3db38c12b40d",
     "fpga/openeye/resnet18_mac20_execution.json": "88c9bd8a41ada2222c3c5a70832de924a6d9880333bf538fc0fd760754c748c1",
-    "fpga/openeye/run_graph_program.py": "d2a9667405f3f93ba91b6ca5fa0b8064e476452dc2186e550a2c6004d474901a",
+    "fpga/openeye/run_graph_program.py": "f86da7bbe10f07422ae8793d2ac761ff2d3cc59dad1e098a8af8262df85c2f10",
     "fpga/openeye/audit_graph_transition_gate.py": "632993ee2279ea68d920e2d8eb6fd56451b2e80b2fcff07845c59693a21e760e",
     "fpga/openeye/experiments/halo_stripe_dispatch.py": "4f563bebce375e439e71f3872a82bc0d2aee9d7c7ac10c33870dd08f70a7cf59",
     "fpga/openeye/experiments/retain_zero_sparse_format.py": "ea06ee67f2fa480b07ea0bf07a24a384d82e9783f7af1656f450624531753984",
@@ -61,17 +61,19 @@
     "fpga/openeye/rtl/openeye_activation_dma_stream.sv": "52e10722242a29f0c118f3b85ea000bb093b62e5393760ea776750fcafc2fa09",
     "fpga/openeye/clocked_resume.py": "e423cfae8efa11eaf9abe15ab394c261e0b74e6ef59aa8d893fd0cbf4ba7b9e9",
     "fpga/openeye/clocked_snapshot.py": "307e5618b143c879c981c59476ca50aaeebde3b0c46f8b5999bc99f20ce36a6a",
-    "fpga/openeye/clocked_stage_job.py": "e92d1f3c49b7bc3c72e3dcfd9e296122072054a167b0f51e5952d7d8d207ed42",
+    "fpga/openeye/clocked_stage_job.py": "5cd6e90f4678a39114369b94b8a983b7344cd036e34797b00305d5a76403d466",
     "fpga/openeye/resumable_graph_top.py": "2b826112f60cf10177934db22c2b3e7054296734d33683c3c2319a2a0655bce6",
     "fpga/openeye/rtl/clocked_resume_main.cpp": "5b73294fedc0b053a1ab64eddf451e6e2f6d99b791f9f1c845fe84c14e12e43c",
-    "fpga/openeye/write_clocked_resume_workflows.py": "77a886f0bfc367b06a71406151ff8682f29c67ff61292f6340324b06eb14b89c",
+    "fpga/openeye/write_clocked_resume_workflows.py": "f14b06472fd9d9994931d055088ac6aca660a2cc8e025161cdb8ede4ab011906",
     "fpga/openeye/requirements-network-resume.txt": "36ec34336481615f0070ef6d8db024e85c82f736f5b9c87a87370724eed71b83",
     "tests/test_clocked_resume_control.py": "51027268d3c3715709058be1da5db39eed9b17bf922b731021d0a47d5aaa1bba",
     "tests/test_clocked_resume_workflow.py": "f2656a277265b72e64cf2b21871b84fa48dded62f4f00e35371941e93ddc6179",
-    "tests/test_clocked_snapshot.py": "760264507553adb1c8b14b9845001f9b73c824ee8121fc1d7386a2db11b714ac"
+    "tests/test_clocked_snapshot.py": "760264507553adb1c8b14b9845001f9b73c824ee8121fc1d7386a2db11b714ac",
+    "tests/test_clocked_audit_failure.py": "bf2337d123d1427f0f56111060d044d04acb98151568cbc89c910b543e3a0771",
+    "tests/test_clocked_convolution_zero_policy.py": "0db38aaabaac61e774771480ed4d572b87918e4480479b3cd64fa17bd702f830"
   },
   "resume_workflows": {
     "openeye-clocked-resumable.yml": "5ed0cc529b657b02ad8244c80426880fdae1cc8cd27c32acd6b9aa2071b88d7a",
-    "openeye-clocked-chunk.yml": "531a18f1b06c1667043ea387f8e5ec76d71647bb51a80f55151a8b92b6163096"
+    "openeye-clocked-chunk.yml": "86772c267649e6724bc96eca2631fd1d70cfcfc9192e4d4735887622b39dc844"
   }
 }

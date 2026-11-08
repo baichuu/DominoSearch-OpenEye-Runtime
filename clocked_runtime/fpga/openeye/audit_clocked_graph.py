@@ -28,6 +28,30 @@ from fpga.openeye.graph_layout import windows,map_input
 from fpga.openeye.graph_mapper import GraphMapper
 
 
+class ClockedAuditFailure(ValueError):
+    """Fixed codes and source coordinates only; never disclose actual operands."""
+    CODES={'RAW_OUTPUT_MISMATCH','INPUT_PACKET_MISMATCH','FORWARDED_VALUE_MISMATCH'}
+
+    def __init__(self,code,instruction,offset):
+        require(code in self.CODES and type(instruction)is int and instruction>=0 and
+                type(offset)is int and offset>=0,'Invalid public audit coordinates')
+        self.metadata=dict(failure_code=code,failure_instruction=instruction,failure_word_offset=offset)
+        super().__init__(code)
+
+
+def check_words(actual,expected,code,instruction,offset=0):
+    if len(actual)!=len(expected):raise ClockedAuditFailure(code,instruction,offset+min(len(actual),len(expected)))
+    for i,(left,right)in enumerate(zip(actual,expected)):
+        if left!=right:raise ClockedAuditFailure(code,instruction,offset+i)
+
+
+def failure_report(error):
+    report=dict(result='FAIL_CLOCKED_NETWORK_AUDIT',failure_type=type(error).__name__,
+                full_network_cycles=None,full_network_rtl_pass=False)
+    if isinstance(error,ClockedAuditFailure):report.update(error.metadata)
+    return report
+
+
 class WordStream:
     def __init__(self,path,digits=16):self.file=path.open();self.digits=digits;self.count=0
     def take(self,count):
@@ -156,7 +180,7 @@ def audit(args):
             instruction,address,word=map(lambda v:int(v,16),tokens)
             require(instruction==ip and address==destination+offset,'Wrong actual intermediate order/address')
             decoded=word-(1<<64)if word>>63 else word
-            require(decoded==int(value),'Actual forwarded tensor differs from independent source golden')
+            if decoded!=int(value):raise ClockedAuditFailure('FORWARDED_VALUE_MISMATCH',ip,offset)
             actual.append(decoded);forwarded_count+=1
         result=np.asarray(actual,dtype=np.int64);memory[destination:destination+result.size]=result;return result
     executed=program[:-1]if stop_after is None else program[:stop_after+1]
@@ -199,7 +223,9 @@ def audit(args):
                     good=(0<=local_filter<nf and 0<=y<logical[1]and window['output_start']<=sx<window['output_stop'])
                     expected_map.append((f+local_filter)*logical[0]*logical[1]+sx*logical[1]+y if good else 0xffffffff)
             require(maps[row[5]:row[5]+2*row[6]]==expected_map,'Actual scatter map differs from native coordinate and source geometry')
-            require(len(expected_raw)==row[6]and raw.take(row[6])==expected_raw,'Raw OpenEye result differs, including padded slots')
+            require(len(expected_raw)==row[6],'Raw oracle geometry differs from frozen command')
+            raw_offset=raw.count
+            check_words(raw.take(row[6]),expected_raw,'RAW_OUTPUT_MISMATCH',ip,raw_offset)
             packet=static.take(row[2]);iact=row[4]
             if iact:
                 if linear:values=a.reshape(-1).tolist()
@@ -209,7 +235,8 @@ def audit(args):
                 if linear:live+=[0]*(iact-len(live))
                 require(len(live)==iact and all(v==0 for v in packet[row[3]:row[3]+iact]),'Static model ROM contains unexpected live activation payload')
                 packet[row[3]:row[3]+iact]=live
-            require(accepted.take(row[2])==packet,'Actual accepted packet differs from model setup/live SRAM activation')
+            input_offset=accepted.count
+            check_words(accepted.take(row[2]),packet,'INPUT_PACKET_MISMATCH',ip,input_offset)
         elif op in(2,5):
             stage=stage_by_post[ip];name=stage['layer'];reference=reference_outputs[name]
             if op==2:
@@ -288,6 +315,9 @@ def audit(args):
         activation_measurement='BN, requantization and ReLU execute in one fused RTL pipeline; reported together, not separately inferred',
         model_initialization='before interval; all inference DMA, SRAM, PSUM, postops and stalls included',
         hardware_scope='common scalar stem + shared OpenEye core + clocked graph scratch and controller',
+        verification_vectors=1,
+        external_memory_model='preloaded model ROM and synchronous scratch SRAM; no external DDR or AXI contention model',
+        latency_scope='cycles of modeled RTL and interfaces; not measured board latency',
         accuracy=False,synthesis=False,post_route=False,board=False,host=identity['host'])
 
 
@@ -300,7 +330,7 @@ if __name__=='__main__':
         report=audit(args)
     except Exception as error:
         # No exception body/tensors are exported from a private evidence audit.
-        report=dict(result='FAIL_CLOCKED_NETWORK_AUDIT',failure_type=type(error).__name__,full_network_cycles=None,full_network_rtl_pass=False)
+        report=failure_report(error)
         suite=ET.Element('testsuite',name='Actual clocked network audit',tests='1',failures='1',errors='0',skipped='0')
         case=ET.SubElement(suite,'testcase',name='image-to-q40-logits');ET.SubElement(case,'failure',message='Independent actual RTL evidence audit failed')
         ET.ElementTree(suite).write(args.output/'junit.xml',encoding='utf-8',xml_declaration=True)

@@ -12,7 +12,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
-from fpga.openeye.clocked_core_compat import gate_unused_pooling_ring,retain_zeros_for_bounded_stride2
+from fpga.openeye.clocked_core_compat import gate_unused_pooling_ring,retain_zeros_for_clocked_convolution
 RTL=ROOT/'fpga/openeye/rtl'
 MODULES=('openeye_graph_engine.sv','openeye_graph_tb.sv','openeye_registered_dma_sender.sv',
     'openeye_dma_output_frame_buffer.sv','openeye_activation_dma_stream.sv','openeye_postops_stream.sv',
@@ -32,7 +32,7 @@ def execute(args):
     build=root/'clocked-build';build.mkdir()
     work=root/'generated'
     gate_unused_pooling_ring(work)
-    if prep.get('optimized'):retain_zeros_for_bounded_stride2(work)
+    if prep.get('optimized'):retain_zeros_for_clocked_convolution(work)
     # Correct signed ReLU is shared by core/bypass and graph post-ops. Frozen
     # generated copies only; the upstream checkout is never edited.
     for name in ('openeye-activation-lane-select.patch','openeye-relu-signed.patch'):

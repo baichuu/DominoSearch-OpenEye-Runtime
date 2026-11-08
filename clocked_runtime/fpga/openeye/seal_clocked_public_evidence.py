@@ -9,7 +9,8 @@ import re
 import shutil
 import xml.etree.ElementTree as ET
 
-COMMON={'result','full_network_cycles','full_network_rtl_pass','failure_type'}
+COMMON={'result','full_network_cycles','full_network_rtl_pass','failure_type',
+        'failure_code','failure_instruction','failure_word_offset'}
 FIELDS={
  'ingress.json':COMMON|{'profile','model','optimized','archive_sha256','graph_preparation_sha256','gate_preparation_sha256','commands','openeye_pin'},
  'gate/audit.json':COMMON|{'openeye_pin','optimized','input_size','conv_filters','checked_convolution_postops_values','checked_fc_logits',
@@ -18,7 +19,8 @@ FIELDS={
      'arithmetic_contract_sha256','input_sha256','preparation_sha256','binary_sha256','checked_stem_values','checked_forwarded_values','checked_logits',
      'stem_components','accepted_input_words','checked_raw_words','stages','postops','stem_latency_cycles','observation_slots','output_sha256',
      'real_rtl_junit','native_core_states','clock_period_ns','clock_scope','interval','activation_measurement','model_initialization','hardware_scope',
-     'accuracy','synthesis','post_route','board','host','resume_chain_sha256','resumed_chunks'}}
+     'accuracy','synthesis','post_route','board','host','resume_chain_sha256','resumed_chunks',
+     'verification_vectors','external_memory_model','latency_scope'}}
 ROW_FIELDS={
  'stages':{'layer','scheme','commands','checked_values','latency_cycles','convolution_dma_accumulation_cycles','postops_cycles','output_sha256'},
  'postops':{'operation','site','checked_values','latency_cycles'},
@@ -44,6 +46,12 @@ def seal(root,output,profile,commit,run_id):
         require(path.is_file()and not path.is_symlink()and path.stat().st_size<16_000_000,'Invalid public evidence input')
         data=json.loads(path.read_text())
         require(isinstance(data,dict)and set(data)<=FIELDS[relative],'Unknown public evidence fields')
+        if 'failure_code'in data:
+            require(data['failure_code']in {'RAW_OUTPUT_MISMATCH','INPUT_PACKET_MISMATCH','FORWARDED_VALUE_MISMATCH'}and
+                    all(type(data.get(k))is int and data[k]>=0 for k in('failure_instruction','failure_word_offset')),
+                    'Unallowlisted audit failure diagnostic')
+            require(data.get('full_network_rtl_pass')is False and data.get('full_network_cycles')is None,
+                    'Numeric failure cannot certify a network result')
         for key,value in data.items():
             if key in ROW_FIELDS:
                 require(isinstance(value,list)and value and all(isinstance(row,dict)and set(row)==ROW_FIELDS[key]for row in value),'Unexpected public table schema')
