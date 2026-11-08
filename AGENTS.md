@@ -1,5 +1,16 @@
 # Public runtime scope
 
+The user additionally authorizes manual clocked save/restore stage workflows
+on 2026-11-09. Preserve the original three monolithic run identities. The new
+21-stage chain snapshots the actual Verilated machine and continuous clock;
+never substitute host tensors, reset a resumed counter or combine disconnected
+services as network latency. Source/binary/ABI/trace ancestry and same-run/commit
+AES-GCM identity must verify before executing restored binaries. Use only the
+existing owner-only Drive grant and encryption key. Keep failed numeric states
+private, preserve failure status and block successor stages. Prefix checks and
+local gates are not full-network PASS. No duplicate dispatch or cancellation is
+implied by publishing these workflow changes.
+
 ## Separate clocked experiment authorized 2026-11-09
 
 The user explicitly authorizes full-network INT8/fixed-point comparisons for

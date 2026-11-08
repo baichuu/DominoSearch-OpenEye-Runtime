@@ -2,7 +2,9 @@
 
 New separate experiment: [clocked whole-network dense/MAC20/optimized comparison](clocked_runtime/README.md)
 uses verified pin `9a742fb` and manual workflow `openeye-clocked-network.yml`.
-It measures an actual image-to-Q40-logit RTL timeline. Dispatch/local gates
+Manual `openeye-clocked-resumable.yml` adds 21 checked stages with encrypted
+whole-model save/restore and continuous inference counters. It measures an
+actual image-to-Q40-logit RTL timeline. Dispatch/local gates
 alone do not establish full-network PASS. Historical hybrid evidence below
 keeps its original pin, arithmetic and scope.
 

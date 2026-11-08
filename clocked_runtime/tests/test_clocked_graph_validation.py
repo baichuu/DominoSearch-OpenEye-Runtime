@@ -89,3 +89,16 @@ def test_reject_partial_timeline_or_native_counter_failure(mode):
     elif mode=='overlap':text=text.replace('op=2 cycles=10','op=2 cycles=9')
     else:text+='\n%Error: actual RTL failed\n'
     with pytest.raises(ValueError):parse_timeline(text,[[1,0,2,0,0,0,2],[2],[0]])
+
+
+def test_checked_prefix_allows_only_the_pending_next_fetch():
+    text=timeline().split('GRAPH_INSTRUCTION_START index=2')[0]
+    starts,ends,states,intervals=parse_timeline(text,[[1,0,2,0,0,0,2],[2],[0]],stop_after=0)
+    assert set(ends)=={0}and set(starts)=={0,1}and intervals[0]==(8,0)
+    with pytest.raises(ValueError):parse_timeline(text,[[1,0,2,0,0,0,2],[2],[0]])
+    with pytest.raises(ValueError):parse_timeline(timeline(),[[1,0,2,0,0,0,2],[2],[0]],stop_after=0)
+
+
+def test_stem_prefix_has_no_completed_backbone_instructions():
+    assert parse_timeline('GRAPH_STEM_DONE values=200704 cycles_from_image=118164487',[[1],[0]],stop_after=-1)==({},{},{},{})
+    with pytest.raises(ValueError):parse_timeline('GRAPH_INSTRUCTION_START index=1 op=0 cycles=10',[[1],[0]],stop_after=-1)

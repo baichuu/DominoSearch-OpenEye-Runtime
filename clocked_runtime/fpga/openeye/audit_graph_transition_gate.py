@@ -22,6 +22,10 @@ def audit(root):
             identity['preparation_sha256']==sha(root/'preparation.json')and execution['returncode']==0 and
             execution['identity_sha256']==sha(root/'clocked-build/identity.json'),'Failed/foreign protocol execution')
     require(sha(root/'clocked-build/obj/Vopeneye_graph_tb')==identity['binary_sha256'],'Changed actual binary')
+    if identity.get('driver_protocol')=='verilated-saveable-low-edge-v1':
+        from fpga.openeye.clocked_resume import validate_chain
+        require(execution['resume_chain_sha256']==sha(root/'resume-chain.json'),'Changed actual gate resume chain')
+        validate_chain(root,complete=True)
     for name,digest in{**identity['sources'],**execution['files'],**prep['oracle_files']}.items():
         require(not Path(name).is_absolute()and '..'not in Path(name).parts and sha(root/name)==digest,'Changed source/oracle/actual trace')
     require(read_words(root/'actual-output.hex',16)==read_words(root/'golden-output.hex',16),'Native FC output differs after convolution')

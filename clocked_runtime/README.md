@@ -31,3 +31,34 @@ Local controls and dispatch alone do not establish full-network PASS.
 
 `SOURCE_SHA256.json` records the explicit runtime-source export. No private Git
 history, model tensors or credentials are exported here.
+
+
+## Resumable clocked execution
+
+Manual workflow `openeye-clocked-resumable.yml` provides all three profiles.
+It has 21 numeric-checked stages: stem, 19 convolutions with post-processing,
+and GAP/FC. Each stage allows three automatic 3-hour inference chunks; each
+active job has a 5-hour cap with checkpoint/audit/upload reserve. A stage can
+still exceed that budget: Re-run failed jobs continues its latest same-run,
+same-commit snapshot. Completed stages do not rerun.
+
+The snapshot contains the entire Verilated model, memories, cache/FSM, observer,
+counters and simulation timestamp. The C++ driver pauses on a settled low edge;
+restoring does not reset the inference clock or inject reference tensors. Exact
+binary/source/trace identity and authenticated chunk ancestry are required.
+Independent prefix checks gate progress; only the complete final audit can
+certify network cycles and numeric PASS.
+
+Use the existing private Drive grant and `OPENEYE_NETWORK_RESUME_KEY_B64`.
+Model snapshots and cumulative traces stay AES-256-GCM encrypted in the approved
+owner-only private root. Public artifacts contain only allowlisted progress or
+final audited aggregates/JUnit. Numeric failure preserves private state and
+blocks the next stage. Code/pin/format changes require a fresh gated chain.
+The monolithic workflow remains available; running old processes cannot acquire
+snapshots retroactively. No completed network PASS follows from these controls.
+
+Save/restore local controls preserve all output/accepted/raw/forwarded bytes:
+50,135 cycles for a small convolution; 119,533,168 for image→stem→8 filters;
+and 3,326,501 across seven geometry sites / four processes. An authenticated
+whole-model stem snapshot restored into a new directory also passes the full
+first convolution (200,704 values). These are bounded controls, not network PASS.

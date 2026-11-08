@@ -1,0 +1,1066 @@
+name: OpenEye clocked snapshot stages
+run-name: Resumable ${{ inputs.profile }} ·21RTL stages · pin9a
+'on':
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Matched image-to-logit save-restore experiment
+        required: true
+        default: dense
+        type: choice
+        options:
+        - dense
+        - mac20
+        - optimized
+permissions:
+  contents: read
+concurrency:
+  group: openeye-clocked-resumable-${{ github.ref }}-${{ inputs.profile }}
+  cancel-in-progress: false
+jobs:
+  phase_00_0:
+    name: 00 stem · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 0
+      slot: 0
+      skip: false
+      checkpoint: ''
+    if: github.repository == 'baichuu/DominoSearch-OpenEye-Runtime'
+  phase_00_1:
+    name: 00 stem · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 0
+      slot: 1
+      skip: ${{ needs.phase_00_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_00_0.outputs.checkpoint_name }}
+    needs:
+    - phase_00_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_00_0.result == 'success'
+  phase_00_2:
+    name: 00 stem · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 0
+      slot: 2
+      skip: ${{ needs.phase_00_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_00_1.outputs.checkpoint_name }}
+    needs:
+    - phase_00_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_00_1.result == 'success'
+  phase_01_0:
+    name: 01 layer1.0.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 1
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_00_2.outputs.checkpoint_name }}
+    needs:
+    - phase_00_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_00_2.result == 'success' &&
+      needs.phase_00_2.outputs.phase_complete == 'true'
+  phase_01_1:
+    name: 01 layer1.0.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 1
+      slot: 1
+      skip: ${{ needs.phase_01_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_01_0.outputs.checkpoint_name }}
+    needs:
+    - phase_01_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_01_0.result == 'success'
+  phase_01_2:
+    name: 01 layer1.0.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 1
+      slot: 2
+      skip: ${{ needs.phase_01_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_01_1.outputs.checkpoint_name }}
+    needs:
+    - phase_01_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_01_1.result == 'success'
+  phase_02_0:
+    name: 02 layer1.0.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 2
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_01_2.outputs.checkpoint_name }}
+    needs:
+    - phase_01_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_01_2.result == 'success' &&
+      needs.phase_01_2.outputs.phase_complete == 'true'
+  phase_02_1:
+    name: 02 layer1.0.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 2
+      slot: 1
+      skip: ${{ needs.phase_02_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_02_0.outputs.checkpoint_name }}
+    needs:
+    - phase_02_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_02_0.result == 'success'
+  phase_02_2:
+    name: 02 layer1.0.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 2
+      slot: 2
+      skip: ${{ needs.phase_02_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_02_1.outputs.checkpoint_name }}
+    needs:
+    - phase_02_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_02_1.result == 'success'
+  phase_03_0:
+    name: 03 layer1.1.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 3
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_02_2.outputs.checkpoint_name }}
+    needs:
+    - phase_02_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_02_2.result == 'success' &&
+      needs.phase_02_2.outputs.phase_complete == 'true'
+  phase_03_1:
+    name: 03 layer1.1.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 3
+      slot: 1
+      skip: ${{ needs.phase_03_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_03_0.outputs.checkpoint_name }}
+    needs:
+    - phase_03_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_03_0.result == 'success'
+  phase_03_2:
+    name: 03 layer1.1.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 3
+      slot: 2
+      skip: ${{ needs.phase_03_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_03_1.outputs.checkpoint_name }}
+    needs:
+    - phase_03_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_03_1.result == 'success'
+  phase_04_0:
+    name: 04 layer1.1.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 4
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_03_2.outputs.checkpoint_name }}
+    needs:
+    - phase_03_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_03_2.result == 'success' &&
+      needs.phase_03_2.outputs.phase_complete == 'true'
+  phase_04_1:
+    name: 04 layer1.1.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 4
+      slot: 1
+      skip: ${{ needs.phase_04_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_04_0.outputs.checkpoint_name }}
+    needs:
+    - phase_04_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_04_0.result == 'success'
+  phase_04_2:
+    name: 04 layer1.1.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 4
+      slot: 2
+      skip: ${{ needs.phase_04_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_04_1.outputs.checkpoint_name }}
+    needs:
+    - phase_04_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_04_1.result == 'success'
+  phase_05_0:
+    name: 05 layer2.0.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 5
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_04_2.outputs.checkpoint_name }}
+    needs:
+    - phase_04_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_04_2.result == 'success' &&
+      needs.phase_04_2.outputs.phase_complete == 'true'
+  phase_05_1:
+    name: 05 layer2.0.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 5
+      slot: 1
+      skip: ${{ needs.phase_05_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_05_0.outputs.checkpoint_name }}
+    needs:
+    - phase_05_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_05_0.result == 'success'
+  phase_05_2:
+    name: 05 layer2.0.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 5
+      slot: 2
+      skip: ${{ needs.phase_05_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_05_1.outputs.checkpoint_name }}
+    needs:
+    - phase_05_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_05_1.result == 'success'
+  phase_06_0:
+    name: 06 layer2.0.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 6
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_05_2.outputs.checkpoint_name }}
+    needs:
+    - phase_05_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_05_2.result == 'success' &&
+      needs.phase_05_2.outputs.phase_complete == 'true'
+  phase_06_1:
+    name: 06 layer2.0.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 6
+      slot: 1
+      skip: ${{ needs.phase_06_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_06_0.outputs.checkpoint_name }}
+    needs:
+    - phase_06_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_06_0.result == 'success'
+  phase_06_2:
+    name: 06 layer2.0.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 6
+      slot: 2
+      skip: ${{ needs.phase_06_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_06_1.outputs.checkpoint_name }}
+    needs:
+    - phase_06_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_06_1.result == 'success'
+  phase_07_0:
+    name: 07 layer2.0.projection · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 7
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_06_2.outputs.checkpoint_name }}
+    needs:
+    - phase_06_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_06_2.result == 'success' &&
+      needs.phase_06_2.outputs.phase_complete == 'true'
+  phase_07_1:
+    name: 07 layer2.0.projection · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 7
+      slot: 1
+      skip: ${{ needs.phase_07_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_07_0.outputs.checkpoint_name }}
+    needs:
+    - phase_07_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_07_0.result == 'success'
+  phase_07_2:
+    name: 07 layer2.0.projection · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 7
+      slot: 2
+      skip: ${{ needs.phase_07_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_07_1.outputs.checkpoint_name }}
+    needs:
+    - phase_07_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_07_1.result == 'success'
+  phase_08_0:
+    name: 08 layer2.1.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 8
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_07_2.outputs.checkpoint_name }}
+    needs:
+    - phase_07_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_07_2.result == 'success' &&
+      needs.phase_07_2.outputs.phase_complete == 'true'
+  phase_08_1:
+    name: 08 layer2.1.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 8
+      slot: 1
+      skip: ${{ needs.phase_08_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_08_0.outputs.checkpoint_name }}
+    needs:
+    - phase_08_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_08_0.result == 'success'
+  phase_08_2:
+    name: 08 layer2.1.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 8
+      slot: 2
+      skip: ${{ needs.phase_08_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_08_1.outputs.checkpoint_name }}
+    needs:
+    - phase_08_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_08_1.result == 'success'
+  phase_09_0:
+    name: 09 layer2.1.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 9
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_08_2.outputs.checkpoint_name }}
+    needs:
+    - phase_08_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_08_2.result == 'success' &&
+      needs.phase_08_2.outputs.phase_complete == 'true'
+  phase_09_1:
+    name: 09 layer2.1.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 9
+      slot: 1
+      skip: ${{ needs.phase_09_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_09_0.outputs.checkpoint_name }}
+    needs:
+    - phase_09_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_09_0.result == 'success'
+  phase_09_2:
+    name: 09 layer2.1.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 9
+      slot: 2
+      skip: ${{ needs.phase_09_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_09_1.outputs.checkpoint_name }}
+    needs:
+    - phase_09_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_09_1.result == 'success'
+  phase_10_0:
+    name: 10 layer3.0.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 10
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_09_2.outputs.checkpoint_name }}
+    needs:
+    - phase_09_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_09_2.result == 'success' &&
+      needs.phase_09_2.outputs.phase_complete == 'true'
+  phase_10_1:
+    name: 10 layer3.0.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 10
+      slot: 1
+      skip: ${{ needs.phase_10_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_10_0.outputs.checkpoint_name }}
+    needs:
+    - phase_10_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_10_0.result == 'success'
+  phase_10_2:
+    name: 10 layer3.0.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 10
+      slot: 2
+      skip: ${{ needs.phase_10_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_10_1.outputs.checkpoint_name }}
+    needs:
+    - phase_10_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_10_1.result == 'success'
+  phase_11_0:
+    name: 11 layer3.0.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 11
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_10_2.outputs.checkpoint_name }}
+    needs:
+    - phase_10_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_10_2.result == 'success' &&
+      needs.phase_10_2.outputs.phase_complete == 'true'
+  phase_11_1:
+    name: 11 layer3.0.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 11
+      slot: 1
+      skip: ${{ needs.phase_11_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_11_0.outputs.checkpoint_name }}
+    needs:
+    - phase_11_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_11_0.result == 'success'
+  phase_11_2:
+    name: 11 layer3.0.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 11
+      slot: 2
+      skip: ${{ needs.phase_11_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_11_1.outputs.checkpoint_name }}
+    needs:
+    - phase_11_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_11_1.result == 'success'
+  phase_12_0:
+    name: 12 layer3.0.projection · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 12
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_11_2.outputs.checkpoint_name }}
+    needs:
+    - phase_11_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_11_2.result == 'success' &&
+      needs.phase_11_2.outputs.phase_complete == 'true'
+  phase_12_1:
+    name: 12 layer3.0.projection · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 12
+      slot: 1
+      skip: ${{ needs.phase_12_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_12_0.outputs.checkpoint_name }}
+    needs:
+    - phase_12_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_12_0.result == 'success'
+  phase_12_2:
+    name: 12 layer3.0.projection · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 12
+      slot: 2
+      skip: ${{ needs.phase_12_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_12_1.outputs.checkpoint_name }}
+    needs:
+    - phase_12_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_12_1.result == 'success'
+  phase_13_0:
+    name: 13 layer3.1.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 13
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_12_2.outputs.checkpoint_name }}
+    needs:
+    - phase_12_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_12_2.result == 'success' &&
+      needs.phase_12_2.outputs.phase_complete == 'true'
+  phase_13_1:
+    name: 13 layer3.1.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 13
+      slot: 1
+      skip: ${{ needs.phase_13_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_13_0.outputs.checkpoint_name }}
+    needs:
+    - phase_13_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_13_0.result == 'success'
+  phase_13_2:
+    name: 13 layer3.1.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 13
+      slot: 2
+      skip: ${{ needs.phase_13_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_13_1.outputs.checkpoint_name }}
+    needs:
+    - phase_13_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_13_1.result == 'success'
+  phase_14_0:
+    name: 14 layer3.1.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 14
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_13_2.outputs.checkpoint_name }}
+    needs:
+    - phase_13_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_13_2.result == 'success' &&
+      needs.phase_13_2.outputs.phase_complete == 'true'
+  phase_14_1:
+    name: 14 layer3.1.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 14
+      slot: 1
+      skip: ${{ needs.phase_14_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_14_0.outputs.checkpoint_name }}
+    needs:
+    - phase_14_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_14_0.result == 'success'
+  phase_14_2:
+    name: 14 layer3.1.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 14
+      slot: 2
+      skip: ${{ needs.phase_14_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_14_1.outputs.checkpoint_name }}
+    needs:
+    - phase_14_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_14_1.result == 'success'
+  phase_15_0:
+    name: 15 layer4.0.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 15
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_14_2.outputs.checkpoint_name }}
+    needs:
+    - phase_14_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_14_2.result == 'success' &&
+      needs.phase_14_2.outputs.phase_complete == 'true'
+  phase_15_1:
+    name: 15 layer4.0.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 15
+      slot: 1
+      skip: ${{ needs.phase_15_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_15_0.outputs.checkpoint_name }}
+    needs:
+    - phase_15_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_15_0.result == 'success'
+  phase_15_2:
+    name: 15 layer4.0.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 15
+      slot: 2
+      skip: ${{ needs.phase_15_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_15_1.outputs.checkpoint_name }}
+    needs:
+    - phase_15_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_15_1.result == 'success'
+  phase_16_0:
+    name: 16 layer4.0.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 16
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_15_2.outputs.checkpoint_name }}
+    needs:
+    - phase_15_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_15_2.result == 'success' &&
+      needs.phase_15_2.outputs.phase_complete == 'true'
+  phase_16_1:
+    name: 16 layer4.0.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 16
+      slot: 1
+      skip: ${{ needs.phase_16_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_16_0.outputs.checkpoint_name }}
+    needs:
+    - phase_16_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_16_0.result == 'success'
+  phase_16_2:
+    name: 16 layer4.0.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 16
+      slot: 2
+      skip: ${{ needs.phase_16_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_16_1.outputs.checkpoint_name }}
+    needs:
+    - phase_16_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_16_1.result == 'success'
+  phase_17_0:
+    name: 17 layer4.0.projection · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 17
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_16_2.outputs.checkpoint_name }}
+    needs:
+    - phase_16_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_16_2.result == 'success' &&
+      needs.phase_16_2.outputs.phase_complete == 'true'
+  phase_17_1:
+    name: 17 layer4.0.projection · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 17
+      slot: 1
+      skip: ${{ needs.phase_17_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_17_0.outputs.checkpoint_name }}
+    needs:
+    - phase_17_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_17_0.result == 'success'
+  phase_17_2:
+    name: 17 layer4.0.projection · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 17
+      slot: 2
+      skip: ${{ needs.phase_17_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_17_1.outputs.checkpoint_name }}
+    needs:
+    - phase_17_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_17_1.result == 'success'
+  phase_18_0:
+    name: 18 layer4.1.conv1 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 18
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_17_2.outputs.checkpoint_name }}
+    needs:
+    - phase_17_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_17_2.result == 'success' &&
+      needs.phase_17_2.outputs.phase_complete == 'true'
+  phase_18_1:
+    name: 18 layer4.1.conv1 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 18
+      slot: 1
+      skip: ${{ needs.phase_18_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_18_0.outputs.checkpoint_name }}
+    needs:
+    - phase_18_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_18_0.result == 'success'
+  phase_18_2:
+    name: 18 layer4.1.conv1 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 18
+      slot: 2
+      skip: ${{ needs.phase_18_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_18_1.outputs.checkpoint_name }}
+    needs:
+    - phase_18_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_18_1.result == 'success'
+  phase_19_0:
+    name: 19 layer4.1.conv2 · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 19
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_18_2.outputs.checkpoint_name }}
+    needs:
+    - phase_18_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_18_2.result == 'success' &&
+      needs.phase_18_2.outputs.phase_complete == 'true'
+  phase_19_1:
+    name: 19 layer4.1.conv2 · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 19
+      slot: 1
+      skip: ${{ needs.phase_19_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_19_0.outputs.checkpoint_name }}
+    needs:
+    - phase_19_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_19_0.result == 'success'
+  phase_19_2:
+    name: 19 layer4.1.conv2 · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 19
+      slot: 2
+      skip: ${{ needs.phase_19_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_19_1.outputs.checkpoint_name }}
+    needs:
+    - phase_19_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_19_1.result == 'success'
+  phase_20_0:
+    name: 20 GAP and FC · slot1
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 20
+      slot: 0
+      skip: false
+      checkpoint: ${{ needs.phase_19_2.outputs.checkpoint_name }}
+    needs:
+    - phase_19_2
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_19_2.result == 'success' &&
+      needs.phase_19_2.outputs.phase_complete == 'true'
+  phase_20_1:
+    name: 20 GAP and FC · slot2
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 20
+      slot: 1
+      skip: ${{ needs.phase_20_0.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_20_0.outputs.checkpoint_name }}
+    needs:
+    - phase_20_0
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_20_0.result == 'success'
+  phase_20_2:
+    name: 20 GAP and FC · slot3
+    uses: ./.github/workflows/openeye-clocked-chunk.yml
+    secrets:
+      DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+      OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+    with:
+      profile: ${{ inputs.profile }}
+      phase: 20
+      slot: 2
+      skip: ${{ needs.phase_20_1.outputs.phase_complete == 'true' }}
+      checkpoint: ${{ needs.phase_20_1.outputs.checkpoint_name }}
+    needs:
+    - phase_20_1
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime' && needs.phase_20_1.result == 'success'
+  final_audit:
+    name: Independent complete-network audit
+    if: always() && github.repository == 'baichuu/DominoSearch-OpenEye-Runtime'
+    needs:
+    - phase_20_2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      OPENEYE_PIN: 9a742fbd42a55ebfa8fcd39aa41dfa36a367572f
+    steps:
+    - name: Require complete execution of every stage
+      env:
+        FINAL_COMPLETE: ${{ needs.phase_20_2.outputs.phase_complete }}
+      run: test "$FINAL_COMPLETE" = "true" || { echo "Incomplete stage chain; Re-run failed jobs continues its authenticated
+        snapshot."; exit 1; }
+    - name: Check out exact public execution source
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+        path: Runtime
+        persist-credentials: false
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install bounded stage dependencies
+      run: 'sudo apt-get update
+
+        sudo apt-get install -y iverilog make patch rclone
+
+        python -m venv OpenEye/.venv
+
+        OpenEye/.venv/bin/python -m pip install -r Runtime/clocked_runtime/fpga/openeye/requirements-clocked.txt -r Runtime/clocked_runtime/fpga/openeye/requirements-network-resume.txt
+
+        '
+    - name: Verify original immutable inputs and owner-only access
+      working-directory: Runtime/clocked_runtime
+      env:
+        DOMINO_RCLONE_CONFIG_B64: ${{ secrets.DOMINO_RCLONE_CONFIG_B64 }}
+        CLOCKED_PROFILE: ${{ inputs.profile }}
+      run: 'python fpga/openeye/prepare_ci_rclone_config.py --output "$RUNNER_TEMP/clocked-rclone.conf"
+
+        ../../OpenEye/.venv/bin/python fpga/openeye/clocked_release_ingress.py --release fpga/openeye/clocked-release.json
+        --profile "$CLOCKED_PROFILE" --config "$RUNNER_TEMP/clocked-rclone.conf" --output "$RUNNER_TEMP/clocked-inputs" >
+        "$RUNNER_TEMP/private-ingress.log" 2>&1
+
+        '
+    - name: Independently audit complete resumed RTL graph
+      working-directory: Runtime/clocked_runtime
+      env:
+        OPENEYE_NETWORK_RESUME_KEY_B64: ${{ secrets.OPENEYE_NETWORK_RESUME_KEY_B64 }}
+        CLOCKED_PROFILE: ${{ inputs.profile }}
+        CLOCKED_CHECKPOINT: ${{ needs.phase_20_2.outputs.checkpoint_name }}
+      run: 'set +e
+
+        ../../OpenEye/.venv/bin/python fpga/openeye/clocked_stage_job.py final --release fpga/openeye/clocked-release.json
+        --workspace "$RUNNER_TEMP/clocked-inputs" --config "$RUNNER_TEMP/clocked-rclone.conf" --public "$RUNNER_TEMP/public-evidence"
+        --profile "$CLOCKED_PROFILE" --checkpoint "$CLOCKED_CHECKPOINT" > "$RUNNER_TEMP/private-final-audit.log" 2>&1
+
+        status=$?
+
+        set -e
+
+        printf "Independent resumed full-network audit exit status: %s\n" "$status"
+
+        exit "$status"
+
+        '
+    - name: Seal allowlisted public aggregate evidence
+      if: always()
+      working-directory: Runtime/clocked_runtime
+      env:
+        CLOCKED_PROFILE: ${{ inputs.profile }}
+      run: python fpga/openeye/seal_clocked_public_evidence.py --root "$RUNNER_TEMP/public-evidence" --output "$RUNNER_TEMP/public-artifact"
+        --profile "$CLOCKED_PROFILE" --execution-commit "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
+    - name: Publish audited counters and real JUnit only
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: clocked-resumed-final-${{ inputs.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/public-artifact
+        if-no-files-found: error
+        retention-days: 30

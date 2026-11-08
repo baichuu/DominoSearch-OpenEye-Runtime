@@ -44,24 +44,29 @@ def signed(values,bits=64):
     return np.asarray([v-(1<<bits)if v>>(bits-1)else v for v in values],dtype=np.int64)
 
 
-def parse_timeline(log,instructions):
+def parse_timeline(log,instructions,stop_after=None):
     require(not re.search(r'(?:%Error|%Fatal|FATAL:|Assertion failed)',log),'Actual RTL reported failure')
     start=re.findall(r'GRAPH_INSTRUCTION_START index=(\d+) op=(\d+) cycles=(\d+)',log)
     end=re.findall(r'GRAPH_INSTRUCTION_DONE index=(\d+) cycles=(\d+) inputs=(\d+) raw_words=(\d+)',log)
-    require([int(i)for i,_,_ in start]==list(range(len(instructions))),'Missing/reordered instruction start markers')
-    require([int(i)for i,_,_,_ in end]==list(range(len(instructions)-1)),'Missing/reordered instruction completion markers')
+    count=len(instructions)-1 if stop_after is None else stop_after+1
+    require(0<=count<len(instructions),'Invalid audited prefix boundary')
+    starts_seen=[int(i)for i,_,_ in start]
+    allowed=[list(range(len(instructions)))]if stop_after is None else[list(range(count)),list(range(count+1))]
+    require(starts_seen in allowed,'Missing/reordered instruction start markers')
+    require([int(i)for i,_,_,_ in end]==list(range(count)),'Missing/reordered instruction completion markers')
     starts={int(i):(int(op),int(c))for i,op,c in start};ends={int(i):(int(c),int(a),int(r))for i,c,a,r in end}
-    for i,row in enumerate(instructions):
+    for i in starts:
+        row=instructions[i]
         require(starts[i][0]==row[0],'Executed opcode differs from frozen program')
-        if row[0]:require(ends[i][0]>starts[i][1]and starts[i+1][1]==ends[i][0],'Gap/overlap in controller timeline')
+        if i<count:require(ends[i][0]>starts[i][1]and(i+1 not in starts or starts[i+1][1]==ends[i][0]),'Gap/overlap in controller timeline')
     input_total=raw_total=0
-    for i,row in enumerate(instructions[:-1]):
+    for i,row in enumerate(instructions[:count]):
         if row[0]==1:input_total+=row[2];raw_total+=row[6]
         require(ends[i][1:]==(input_total,raw_total),'Missing/extra per-instruction transfer counts')
     states={};intervals={}
     for i,state,cycles,words in re.findall(r'GRAPH_CORE_STATE index=(\d+) state=(\d+) cycles=(\d+) input_words=(\d+)',log):
         i,state,cycles,words=map(int,(i,state,cycles,words))
-        require((i,state)not in states and 0<=i<len(instructions)-1 and instructions[i][0]==1 and
+        require((i,state)not in states and 0<=i<count and instructions[i][0]==1 and
                 0<=state<64 and 0<=words<=cycles,'Invalid/duplicate native core counter')
         states[i,state]=(cycles,words)
     for i,cycles,retries in re.findall(r'GRAPH_CORE_INTERVAL index=(\d+) cycles=(\d+) retry_cycles=(\d+)',log):
@@ -71,11 +76,12 @@ def parse_timeline(log,instructions):
         expected_inputs=ends[i][1]-(ends[i-1][1]if i else 0)
         require(sum(v[1]for v in rows)==expected_inputs==instructions[i][2],'Native accepted-word counter mismatch')
         intervals[i]=(cycles,retries)
-    require(set(intervals)=={i for i,row in enumerate(instructions)if row[0]==1},'Missing native core interval counters')
+    require(set(intervals)=={i for i,row in enumerate(instructions[:count])if row[0]==1},'Missing native core interval counters')
     return starts,ends,states,intervals
 
 
 def audit(args):
+    stop_after=getattr(args,'stop_after_instruction',None)
     root=args.root.resolve();structural=validate(root);prep=json.loads((root/'preparation.json').read_text())
     execution=json.loads((root/'execution.json').read_text());identity=json.loads((root/'clocked-build/identity.json').read_text())
     require(execution['returncode']==0 and execution['identity_sha256']==sha(root/'clocked-build/identity.json'),'Failed/foreign graph execution')
@@ -85,8 +91,12 @@ def audit(args):
     for name,digest in identity['sources'].items():
         require(not Path(name).is_absolute()and '..'not in Path(name).parts and sha(root/name)==digest,'Changed actual HDL/header input')
     for name,digest in execution['files'].items():require(sha(root/name)==digest,'Changed actual graph execution trace')
+    if identity.get('driver_protocol')=='verilated-saveable-low-edge-v1':
+        from fpga.openeye.clocked_resume import validate_chain
+        require(execution['resume_chain_sha256']==sha(root/'resume-chain.json'),'Changed resume execution chain')
+        resume_chain=validate_chain(root,complete=stop_after is None)
     program=[[int(line[i:i+8],16)for i in range(0,len(line),8)][::-1]for line in(root/'program.hex').read_text().splitlines()]
-    log=(root/'simulation.log').read_text();starts,ends,states,intervals=parse_timeline(log,program)
+    log=(root/'simulation.log').read_text();starts,ends,states,intervals=parse_timeline(log,program,stop_after)
     packed=args.bundle_root/prep['model']/'packed-v1';manifest=json.loads((packed/'manifest.json').read_text())
     contract=json.loads((root/'arithmetic-contract.json').read_text());unsigned=dict(contract);expected_contract=unsigned.pop('contract_sha256')
     require(hashlib.sha256(json.dumps(unsigned,sort_keys=True,separators=(',',':')).encode()).hexdigest()==expected_contract and
@@ -149,7 +159,8 @@ def audit(args):
             require(decoded==int(value),'Actual forwarded tensor differs from independent source golden')
             actual.append(decoded);forwarded_count+=1
         result=np.asarray(actual,dtype=np.int64);memory[destination:destination+result.size]=result;return result
-    for ip,row in enumerate(program[:-1]):
+    executed=program[:-1]if stop_after is None else program[:stop_after+1]
+    for ip,row in enumerate(executed):
         op=row[0]
         if op==1:
             if ip in stages:
@@ -237,7 +248,22 @@ def audit(args):
             golden=global_average_pool(a);actual=forwarded_output(ip,row[2],golden)
             shapes[row[2]]=golden.shape;scales[row[2]]=scales[row[1]]
             post_records.append(dict(operation='gap',site='gap',checked_values=int(actual.size),latency_cycles=ends[ip][0]-1-starts[ip][1]))
-    static.finish();accepted.finish();raw.finish();require(not forwarded.read().strip(),'Unexpected extra forwarded tensor values');forwarded.close()
+    if stop_after is None:static.finish()
+    else:static.file.close()
+    accepted.finish();raw.finish();require(not forwarded.read().strip(),'Unexpected extra forwarded tensor values');forwarded.close()
+    if stop_after is not None:
+        require(not(root/'actual-output.hex').read_text().strip()and 'GRAPH_OUTPUT_DONE'not in log,'Final output cannot be relabeled as prefix')
+        expected_stages=sum(s['last_instruction']<=stop_after for s in prep['stages'])
+        require(len(stage_records)==expected_stages and len(post_records)==sum(row[0]in(2,3,4,5)for row in executed),'Incomplete checked prefix operators')
+        require(identity.get('driver_protocol')=='verilated-saveable-low-edge-v1'and
+                resume_chain['chunks'][-1]['end_status']['last_logged_instruction']==(0xffffffff if stop_after==-1 else stop_after),
+                'Snapshot does not end at the checked prefix instruction')
+        return dict(result='PASS_CHECKED_CLOCKED_PREFIX_NOT_NETWORK',model=prep['model'],optimized=prep['optimized'],openeye_pin=PIN,
+            stop_after_instruction=stop_after,checked_stem_values=200704,checked_forwarded_values=forwarded_count,
+            checked_stages=len(stage_records),checked_postops=len(post_records),checked_raw_words=raw.count,accepted_input_words=accepted.count,
+            observed_prefix_cycles=resume_chain['chunks'][-1]['end_status']['observed_cycles'],
+            preparation_sha256=sha(root/'preparation.json'),binary_sha256=identity['binary_sha256'],
+            resume_chain_sha256=sha(root/'resume-chain.json'),full_network_cycles=None,full_network_rtl_pass=False,real_rtl_junit=1)
     require(len(stage_records)==20 and len(post_records)==29,'Incomplete stage/post-op audit')
     output=signed(read_words(root/'actual-output.hex',16));require(output.size==1000 and np.array_equal(output,memory[prep['output_base']:prep['output_base']+1000]),'Final output file differs from actual forwarded logits')
     marker=re.findall(r'GRAPH_OUTPUT_DONE values=(\d+) latency=(\d+) slots=(\d+) engine_cycles=(\d+)',log)
@@ -250,6 +276,8 @@ def audit(args):
         arithmetic_contract_sha256=expected_contract,input_sha256=contract['quantized_input_sha256'],
         preparation_sha256=sha(root/'preparation.json'),binary_sha256=identity['binary_sha256'],
         checked_stem_values=200704,checked_forwarded_values=forwarded_count,checked_logits=1000,
+        resume_chain_sha256=sha(root/'resume-chain.json')if identity.get('driver_protocol')=='verilated-saveable-low-edge-v1'else None,
+        resumed_chunks=len(resume_chain['chunks'])if identity.get('driver_protocol')=='verilated-saveable-low-edge-v1'else 1,
         stem_components=stem_components,
         accepted_input_words=accepted.count,checked_raw_words=raw.count,stages=stage_records,postops=post_records,
         stem_latency_cycles=stem_cycles,full_network_cycles=cycles,observation_slots=slots,full_network_rtl_pass=True,
@@ -266,6 +294,7 @@ def audit(args):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     for name in('root','bundle-root','output'):parser.add_argument('--'+name,type=Path,required=True)
+    parser.add_argument('--stop-after-instruction',type=int,help='Check a completed source prefix, never certify full network')
     args=parser.parse_args();require(not args.output.exists(),'New public evidence directory required');args.output.mkdir()
     try:
         report=audit(args)
@@ -277,11 +306,12 @@ if __name__=='__main__':
         ET.ElementTree(suite).write(args.output/'junit.xml',encoding='utf-8',xml_declaration=True)
         (args.output/'audit.json').write_text(json.dumps(report,indent=2)+'\n');raise
     (args.output/'audit.json').write_text(json.dumps(report,indent=2)+'\n')
-    for key,name in(('stages','layers.csv'),('postops','postops.csv'),('native_core_states','native-core-states.csv')):
+    for key,name in(()if args.stop_after_instruction is not None else(('stages','layers.csv'),('postops','postops.csv'),('native_core_states','native-core-states.csv'))):
         rows=report[key]
         with(args.output/name).open('w',newline='')as stream:
             writer=csv.DictWriter(stream,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
-    suite=ET.Element('testsuite',name='Actual complete clocked network',tests='1',failures='0',errors='0',skipped='0')
-    ET.SubElement(suite,'testcase',name='image-to-q40-logits',classname='whole-network-int8-fixedpoint-v1')
+    prefix=args.stop_after_instruction is not None
+    suite=ET.Element('testsuite',name='Actual checked clocked prefix'if prefix else'Actual complete clocked network',tests='1',failures='0',errors='0',skipped='0')
+    ET.SubElement(suite,'testcase',name='prefix-through-'+str(args.stop_after_instruction)if prefix else'image-to-q40-logits',classname='whole-network-int8-fixedpoint-v1')
     ET.ElementTree(suite).write(args.output/'junit.xml',encoding='utf-8',xml_declaration=True)
     print(json.dumps({k:v for k,v in report.items()if k not in('stages','postops','native_core_states')},indent=2))
