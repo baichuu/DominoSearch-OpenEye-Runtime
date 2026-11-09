@@ -16,14 +16,15 @@ def test_streamed_checkpoint_authenticates_every_byte_and_identity(tmp_path):
     with pytest.raises(ValueError):encrypt(source,encrypted,context,key)
 
 
-@pytest.mark.parametrize('mutation',['payload','tag','identity','profile','stem-lanes','key','truncated'])
+@pytest.mark.parametrize('mutation',['payload','tag','identity','profile','stem-lanes','function-counters','key','truncated'])
 def test_invalid_checkpoint_never_releases_plaintext(tmp_path,mutation):
     source=tmp_path/'private';source.write_bytes(b'private model and SRAM'*100);key=os.urandom(32)
-    context=dict(commit='a'*40,profile='mac20',run_id='123',stem_channel_lanes=3);encrypted=tmp_path/'encrypted'
+    context=dict(commit='a'*40,profile='mac20',run_id='123',stem_channel_lanes=3,function_metrics=1);encrypted=tmp_path/'encrypted'
     encrypt(source,encrypted,context,key)
     if mutation=='identity':context['commit']='c'*40
     elif mutation=='profile':context['profile']='dense'
     elif mutation=='stem-lanes':context['stem_channel_lanes']=1
+    elif mutation=='function-counters':context['function_metrics']=0
     elif mutation=='key':key=os.urandom(32)
     else:
         data=bytearray(encrypted.read_bytes())

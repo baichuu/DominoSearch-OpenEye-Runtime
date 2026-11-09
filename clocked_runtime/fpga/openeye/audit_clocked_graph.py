@@ -285,13 +285,19 @@ def audit(args):
         require(identity.get('driver_protocol')=='verilated-saveable-low-edge-v1'and
                 resume_chain['chunks'][-1]['end_status']['last_logged_instruction']==(0xffffffff if stop_after==-1 else stop_after),
                 'Snapshot does not end at the checked prefix instruction')
+        metric_summary={}
+        if identity['parameters'].get('FUNCTION_METRICS',0):
+            from fpga.openeye.audit_function_metrics import parse
+            measured=parse(log,program,prep,stop_after=stop_after)
+            metric_summary=dict(function_metrics_protocol='passive-function-cycles-v1',
+                measured_function_rows=len(measured['functions']),measured_instruction_ledger_rows=measured['instruction_ledger_rows'])
         return dict(result='PASS_CHECKED_CLOCKED_PREFIX_NOT_NETWORK',model=prep['model'],optimized=prep['optimized'],openeye_pin=PIN,
             stem_channel_lanes=identity['parameters'].get('STEM_CHANNEL_LANES',1),
             stop_after_instruction=stop_after,checked_stem_values=200704,checked_forwarded_values=forwarded_count,
             checked_stages=len(stage_records),checked_postops=len(post_records),checked_raw_words=raw.count,accepted_input_words=accepted.count,
             observed_prefix_cycles=resume_chain['chunks'][-1]['end_status']['observed_cycles'],
             preparation_sha256=sha(root/'preparation.json'),binary_sha256=identity['binary_sha256'],
-            resume_chain_sha256=sha(root/'resume-chain.json'),full_network_cycles=None,full_network_rtl_pass=False,real_rtl_junit=1)
+            resume_chain_sha256=sha(root/'resume-chain.json'),full_network_cycles=None,full_network_rtl_pass=False,real_rtl_junit=1,**metric_summary)
     require(len(stage_records)==20 and len(post_records)==29,'Incomplete stage/post-op audit')
     output=signed(read_words(root/'actual-output.hex',16));require(output.size==1000 and np.array_equal(output,memory[prep['output_base']:prep['output_base']+1000]),'Final output file differs from actual forwarded logits')
     marker=re.findall(r'GRAPH_OUTPUT_DONE values=(\d+) latency=(\d+) slots=(\d+) engine_cycles=(\d+)',log)
@@ -299,6 +305,13 @@ def audit(args):
     require(count==1000 and slots==cycles+1 and cycles==stem_cycles+1+engine_at_output,'Network timeline differs from actual stem/controller edge counts')
     end_marker=re.findall(r'GRAPH_PROGRAM_DONE instructions=(\d+) inputs=(\d+) raw_words=(\d+) cycles=(\d+)',log)
     require(len(end_marker)==1 and tuple(map(int,end_marker[0][:3]))==(len(program)-1,accepted.count,raw.count),'Incomplete final program/transfer counters')
+    function_data={}
+    if identity['parameters'].get('FUNCTION_METRICS',0):
+        from fpga.openeye.audit_function_metrics import parse
+        measured=parse(log,program,prep,network_cycles=cycles)
+        function_data=dict(function_metrics_protocol='passive-function-cycles-v1',functions=measured['functions'],
+            exclusive_steps=measured['exclusive_steps'],exclusive_cycles_sum=measured['exclusive_cycles_sum'],
+            measured_instruction_ledger_rows=measured['instruction_ledger_rows'],function_measurement_scope=measured['measurement_scope'])
     return dict(result='PASS_INDEPENDENT_COMPLETE_CLOCKED_NETWORK_AUDIT',experiment=prep['experiment'],model=prep['model'],optimized=prep['optimized'],
         openeye_pin=PIN,source_checkpoint_sha256=manifest['checkpoint']['sha256'],source_scheme_sha256=manifest['scheme']['sha256'],
         arithmetic_contract_sha256=expected_contract,input_sha256=contract['quantized_input_sha256'],
@@ -313,7 +326,8 @@ def audit(args):
         native_core_states=[dict(instruction=i,state=state,cycles=c,input_words=w)for(i,state),(c,w)in states.items()],
         clock_period_ns=10,clock_scope='simulation clock only; no Fmax validation',
         interval='first signed image byte accepted to last Q40 logit stored; one clock, no reset across graph',
-        activation_measurement='BN, requantization and ReLU execute in one fused RTL pipeline; reported together, not separately inferred',
+        activation_measurement=('actual register handshakes measured separately; overlapping function rows are not additive'if function_data else
+            'BN, requantization and ReLU execute in one fused RTL pipeline; reported together, not separately inferred'),
         model_initialization='before interval; all inference DMA, SRAM, PSUM, postops and stalls included',
         hardware_scope=('common scalar stem'if identity['parameters'].get('STEM_CHANNEL_LANES',1)==1 else
                         'research three-channel MAC stem')+' + shared OpenEye core + clocked graph scratch and controller',
@@ -321,7 +335,7 @@ def audit(args):
         verification_vectors=1,
         external_memory_model='preloaded model ROM and synchronous scratch SRAM; no external DDR or AXI contention model',
         latency_scope='cycles of modeled RTL and interfaces; not measured board latency',
-        accuracy=False,synthesis=False,post_route=False,board=False,host=identity['host'])
+        accuracy=False,synthesis=False,post_route=False,board=False,host=identity['host'],**function_data)
 
 
 if __name__=='__main__':
@@ -343,8 +357,13 @@ if __name__=='__main__':
         rows=report[key]
         with(args.output/name).open('w',newline='')as stream:
             writer=csv.DictWriter(stream,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows)
+    if args.stop_after_instruction is None and 'functions'in report:
+        from fpga.openeye.audit_function_metrics import FUNCTION_COLUMNS,STEP_COLUMNS
+        for key,name,columns in(('functions','functions.csv',FUNCTION_COLUMNS),('exclusive_steps','exclusive-steps.csv',STEP_COLUMNS)):
+            with(args.output/name).open('w',newline='')as stream:
+                writer=csv.DictWriter(stream,fieldnames=columns,lineterminator='\n');writer.writeheader();writer.writerows(report[key])
     prefix=args.stop_after_instruction is not None
     suite=ET.Element('testsuite',name='Actual checked clocked prefix'if prefix else'Actual complete clocked network',tests='1',failures='0',errors='0',skipped='0')
     ET.SubElement(suite,'testcase',name='prefix-through-'+str(args.stop_after_instruction)if prefix else'image-to-q40-logits',classname='whole-network-int8-fixedpoint-v1')
     ET.ElementTree(suite).write(args.output/'junit.xml',encoding='utf-8',xml_declaration=True)
-    print(json.dumps({k:v for k,v in report.items()if k not in('stages','postops','native_core_states')},indent=2))
+    print(json.dumps({k:v for k,v in report.items()if k not in('stages','postops','native_core_states','functions','exclusive_steps')},indent=2))

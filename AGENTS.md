@@ -85,3 +85,26 @@ itself: same-dispatch native gate and every independent prefix/final audit must
 pass. Report lane metadata. No synthesis/Fmax/accuracy/board claims. Keep
 necessary runtime-only export; private experiment scripts/docs/data are not
 needed for CI and remain private. Do not duplicate dispatch this candidate.
+
+
+### Passive function cycle measurement export — 2026-11-09
+
+User requests separate function cycles and a complete per-step network table
+while stem3 run42568321028 continues. Preserve that exact23847a4 execution; do
+not dispatch/cancel/relabel it. New manual staged runs defaultfunction_metrics1.
+All63worker slots and final audit bind this option to checkpoint AAD, private
+folder and actual binary params. Old binaries/checkpoints cannot acquire new
+measurements. Only input-only passive register/handshake observers are added;
+no input/arithmetic/ready changes. Function spans and per-value/channel/tensor
+latencies are NONADDITIVE. Exclusive per-instruction state rows must close
+against actual instruction intervals and full network cycles before public
+PASS. Folded BN affine, residual scale/add and FC scale/bias remain fused at
+their physical registers. Disabled functions are NOT_EXECUTED.
+
+Export contains runtime code, observers, synthetic tests/testbench only; ready
+model archive registry unchanged.141admission controlsPASS+5passiveRTLcontrols
+PASS after adding missing testbench/optionalPSUM helper;24privacycontrolsPASS.
+Actual local crop50135cycles and stem3/firstconv45143129cycles match unchanged
+model traces. Full instrumented local measurement is pending; local prefix
+is not CI/full-network PASS. SOURCE_SHA256 identifies reviewed private source.
+Raw logs/ROMs/tensors/coefficients/models/checkpoints remain private.

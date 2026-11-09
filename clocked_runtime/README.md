@@ -100,3 +100,30 @@ only the graph frontend selects parallel lanes. New code uses a fresh chain,
 never old scalar/local snapshots. Inputs, masks, fixed-point contract and raw
 checkers stay unchanged. Additional multipliers/banking have no measured area
 or Fmax yet; no board speedup or accuracy claim follows from this dispatch.
+
+
+## Passive per-function cycle tables
+
+New manual staged runs default to `function_metrics=1` for all three profiles.
+The option binds every stage and final audit to the actual binary and AES-GCM
+context; counter-free checkpoints cannot be imported. Existing runs keep their
+exact execution source and cannot acquire counters retroactively.
+
+`functions.csv` observes actual register handshakes for folded BN affine,
+residual scale/add, requantization, ReLU/bypass, INT8 saturation, FIFO, GAP,
+FC Q40 scale/bias, stem convolution, maxpool and image ingress. Per-value
+latency and whole-tensor span are distinct. Function rows overlap and must
+not be added to network cycles. Fused arithmetic has no invented sub-step
+latency. Disabled functions are explicitly `NOT_EXECUTED`.
+
+`exclusive-steps.csv` partitions every observed edge among ingress, stem,
+DMA, PSUM, SRAM, postops and controller. Each instruction closes against its
+actual timeline; the final sum must equal the independent whole-network cycle
+count. `summarize_function_metrics.py` makes a per-site CSV and readable
+Markdown table from a completed independent audit only. Public egress checks
+CSV equality with the certified JSON. No tensors or raw logs are exported.
+
+Actual controls preserve output and total cycles, including a save/restore
+inside the pipeline. A connected stem3/first-convolution prefix preserves
+45,143,129 cycles and every actual trace. This is prefix validation, not a
+completed full-network function result or a new accuracy/Fmax/board claim.

@@ -7,7 +7,10 @@ import json
 from pathlib import Path
 import re
 import shutil
+import sys
 import xml.etree.ElementTree as ET
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
+from fpga.openeye.audit_function_metrics import FUNCTION_COLUMNS,STEP_COLUMNS
 
 COMMON={'result','full_network_cycles','full_network_rtl_pass','failure_type',
         'failure_code','failure_instruction','failure_word_offset'}
@@ -20,12 +23,15 @@ FIELDS={
      'stem_components','accepted_input_words','checked_raw_words','stages','postops','stem_latency_cycles','observation_slots','output_sha256',
      'real_rtl_junit','native_core_states','clock_period_ns','clock_scope','interval','activation_measurement','model_initialization','hardware_scope',
      'accuracy','synthesis','post_route','board','host','resume_chain_sha256','resumed_chunks',
-     'verification_vectors','external_memory_model','latency_scope','stem_channel_lanes'}}
+     'verification_vectors','external_memory_model','latency_scope','stem_channel_lanes',
+     'function_metrics_protocol','functions','exclusive_steps','exclusive_cycles_sum',
+     'measured_instruction_ledger_rows','function_measurement_scope'}}
 ROW_FIELDS={
  'stages':{'layer','scheme','commands','checked_values','latency_cycles','convolution_dma_accumulation_cycles','postops_cycles','output_sha256'},
  'postops':{'operation','site','checked_values','latency_cycles'},
  'native_core_states':{'instruction','state','cycles','input_words'},
- 'stem_components':{'operation','accepted_values','first_output_edge','last_output_edge','output_span_cycles','scope'}}
+ 'stem_components':{'operation','accepted_values','first_output_edge','last_output_edge','output_span_cycles','scope'},
+ 'functions':set(FUNCTION_COLUMNS),'exclusive_steps':set(STEP_COLUMNS)}
 
 
 def require(ok,message):
@@ -74,6 +80,15 @@ def seal(root,output,profile,commit,run_id):
             network_pass=data.get('result')=='PASS_INDEPENDENT_COMPLETE_CLOCKED_NETWORK_AUDIT'
             require(network_pass==bool(data.get('full_network_rtl_pass')),'Inconsistent network result')
             require(network_pass or data.get('full_network_cycles')is None,'Uncertified network cycle total')
+            metric_keys={'function_metrics_protocol','functions','exclusive_steps','exclusive_cycles_sum','measured_instruction_ledger_rows','function_measurement_scope'}
+            if metric_keys.intersection(data):
+                require(metric_keys<=set(data),'Incomplete function measurement tables')
+                require(network_pass and data.get('function_metrics_protocol')=='passive-function-cycles-v1'and
+                        all(row['additive_to_network']is False for row in data['functions'])and
+                        all(row['additive_to_network']is True for row in data.get('exclusive_steps',[]))and
+                        all(type(row['cycles'])is int and row['cycles']>=0 for row in data['exclusive_steps'])and
+                        sum(row['cycles']for row in data['exclusive_steps'])==data.get('exclusive_cycles_sum')==data.get('full_network_cycles'),
+                        'Function and exclusive cycle scopes do not close')
         target=output/relative;target.parent.mkdir(exist_ok=True)
         target.write_text(json.dumps(data,indent=2,allow_nan=False)+'\n');copied.append(relative)
     for scope in ('gate','network'):
@@ -100,6 +115,9 @@ def seal(root,output,profile,commit,run_id):
         'postops.csv':('operation','site','checked_values','latency_cycles'),
         'native-core-states.csv':('instruction','state','cycles','input_words')}
     if network_pass:
+        network=json.loads((root/'network/audit.json').read_text())
+        if 'functions'in network:
+            columns.update({'functions.csv':FUNCTION_COLUMNS,'exclusive-steps.csv':STEP_COLUMNS})
         for name,header in columns.items():
             path=root/'network'/name
             require(path.is_file()and not path.is_symlink()and path.stat().st_size<32_000_000,'Missing/invalid certified cycle table')
@@ -108,6 +126,10 @@ def seal(root,output,profile,commit,run_id):
                 rows=list(reader)
             require(rows and all(set(row)==set(header)and all(isinstance(v,str)and re.fullmatch('[a-zA-Z0-9_.:-]+',v)for v in row.values())for row in rows),
                     'Unallowlisted cycle table contents')
+            table={'layers.csv':'stages','postops.csv':'postops','native-core-states.csv':'native_core_states',
+                   'functions.csv':'functions','exclusive-steps.csv':'exclusive_steps'}[name]
+            require(rows==[{key:str(row[key])for key in header}for row in network[table]],
+                    'CSV differs from certified audit table')
             target=output/'network'/name
             with target.open('w',newline='')as stream:
                 writer=csv.DictWriter(stream,fieldnames=header);writer.writeheader();writer.writerows(rows)

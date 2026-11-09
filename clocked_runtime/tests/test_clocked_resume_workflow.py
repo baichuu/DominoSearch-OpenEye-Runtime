@@ -167,3 +167,41 @@ def test_initial_gate_stays_native_and_graph_build_receives_requested_stem_lanes
     monkeypatch.setattr(gate_audit,'audit',lambda *a:dict(result='FABRICATED_ORCHESTRATION_CONTROL_NOT_DUT_EVIDENCE'))
     module.prepare_initial(SimpleNamespace(workspace=tmp_path,stem_channel_lanes=3))
     assert builds==[('gate',1),('graph',3)]
+
+
+def test_function_counter_policy_reaches_every_slot_and_final_audit(tmp_path):
+    (tmp_path/'.github/workflows').mkdir(parents=True);render(tmp_path)
+    main=yaml.safe_load((tmp_path/'.github/workflows/openeye-clocked-resumable.yml').read_text())
+    choice=main['on']['workflow_dispatch']['inputs']['function_metrics']
+    assert choice['default']=='1'and choice['options']==['1','0']
+    for job in main['jobs'].values():
+        if 'uses'in job:assert job['with']['function_metrics']=='${{ inputs.function_metrics }}'
+    worker=yaml.safe_load((tmp_path/'.github/workflows/openeye-clocked-chunk.yml').read_text())
+    chunk=next(v for v in worker['jobs']['execute']['steps']if v.get('id')=='chunk')
+    final=next(v for v in main['jobs']['final_audit']['steps']if 'clocked_stage_job.py final'in v.get('run',''))
+    for step in(chunk,final):
+        assert step['env']['CLOCKED_FUNCTION_METRICS']=='${{ inputs.function_metrics }}'
+        assert '--function-metrics "$CLOCKED_FUNCTION_METRICS"'in step['run']
+
+
+@pytest.mark.parametrize('requested,actual,valid',[(0,0,True),(1,1,True),(1,0,False),(0,1,False),(2,0,False),(True,1,False)])
+def test_model_counter_policy_cannot_be_mislabeled(tmp_path,monkeypatch,requested,actual,valid):
+    import fpga.openeye.clocked_resume as resume
+    from fpga.openeye.clocked_stage_job import verify_stem_policy
+    monkeypatch.setattr(resume,'identity',lambda root:dict(parameters=dict(STEM_CHANNEL_LANES=1,FUNCTION_METRICS=actual)))
+    args=SimpleNamespace(stem_channel_lanes=1,function_metrics=requested)
+    if valid:verify_stem_policy(args,tmp_path)
+    else:
+        with pytest.raises(ValueError):verify_stem_policy(args,tmp_path)
+
+
+def test_counter_policy_is_authenticated_with_execution_identity(monkeypatch):
+    import fpga.openeye.clocked_stage_job as module
+    monkeypatch.setenv('GITHUB_SHA','a'*40);monkeypatch.setenv('GITHUB_RUN_ID','123')
+    monkeypatch.setenv('GITHUB_REPOSITORY','baichuu/DominoSearch-OpenEye-Runtime')
+    monkeypatch.setattr(module.subprocess,'run',lambda *a,**k:SimpleNamespace(returncode=0,stdout='a'*40))
+    release=dict(profiles=dict(optimized=dict(archive_sha256='b'*64,graph_preparation_sha256='c'*64)),arithmetic_contract_sha256='d'*64)
+    off=module.context(SimpleNamespace(profile='optimized',function_metrics=0),release)
+    on=module.context(SimpleNamespace(profile='optimized',function_metrics=1),release)
+    assert off['function_metrics']==0 and on['function_metrics']==1
+    assert {k:v for k,v in off.items()if k!='function_metrics'}=={k:v for k,v in on.items()if k!='function_metrics'}

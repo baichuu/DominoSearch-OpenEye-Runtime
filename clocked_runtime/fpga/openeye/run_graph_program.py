@@ -28,6 +28,7 @@ def execute(args):
     prep=json.loads((root/'preparation.json').read_text())
     savable=bool(getattr(args,'savable',False))
     stem_lanes=getattr(args,'stem_channel_lanes',1)
+    function_metrics=bool(getattr(args,'function_metrics',False))
     if type(stem_lanes)is not int or stem_lanes not in(1,3)or(stem_lanes!=1 and not prep.get('connected_stem')):
         raise ValueError('Research stem lanes require a connected image-to-logit graph')
     for name,digest in prep['files'].items():
@@ -54,17 +55,25 @@ def execute(args):
     modules=list(MODULES)
     if prep.get('connected_stem'):
         modules+=['openeye_stem_frontend.sv','openeye_stem_conv_stream.sv','openeye_stem_conv_channel_parallel.sv','openeye_maxpool3_stream.sv']
+    if function_metrics:modules+=['openeye_function_cycle_observer.sv','openeye_postops_cycle_metrics.sv']
     for name in modules:
         if savable and name=='openeye_graph_tb.sv':
             from fpga.openeye.resumable_graph_top import source
-            p=build/'openeye_graph_resumable.sv';p.write_text(source());sources.append(p)
+            p=build/'openeye_graph_resumable.sv';content=source()
+            if function_metrics:
+                from fpga.openeye.graph_function_metrics import inject
+                content=inject(content,connected_stem=bool(prep.get('connected_stem')),stem_lanes=stem_lanes)
+            p.write_text(content);sources.append(p)
             continue
         p=build/name;shutil.copyfile(RTL/name,p);sources.append(p)
+        if function_metrics and name=='openeye_graph_tb.sv':
+            from fpga.openeye.graph_function_metrics import inject
+            p.write_text(inject(p.read_text(),connected_stem=bool(prep.get('connected_stem')),stem_lanes=stem_lanes))
     params=dict(MEMORY_VALUES=prep['memory_values'],INITIAL_VALUES=prep['initial_values'],
         PACKET_WORDS=prep['packet_words'],MAP_LANES=prep['map_lanes'],INSTRUCTIONS=prep['instructions'],
         COEFFICIENTS=prep['coefficient_count'],OUTPUT_BASE=prep['output_base'],OUTPUT_VALUES=prep['output_values'],
         FRAME_CAPACITY=prep['raw_words'],USE_STEM=int(prep.get('connected_stem',False)),OPTIMIZED_CORE=int(prep.get('optimized',False)),
-        STEM_CHANNEL_LANES=stem_lanes)
+        STEM_CHANNEL_LANES=stem_lanes,FUNCTION_METRICS=int(function_metrics))
     binary=build/'obj/Vopeneye_graph_tb'
     if savable:
         cpp=build/'clocked_resume_main.cpp';shutil.copyfile(RTL/cpp.name,cpp);sources.append(cpp)
@@ -127,4 +136,5 @@ if __name__=='__main__':
     parser.add_argument('--savable',action='store_true',help='Build the untimed snapshot driver; execution is managed by the resume runner')
     parser.add_argument('--stem-channel-lanes',type=int,choices=(1,3),default=1,
                         help='Explicit research configuration; default preserves scalar published profiles')
+    parser.add_argument('--function-metrics',action='store_true',help='Passive per-function and exclusive edge counters; does not alter the datapath')
     execute(parser.parse_args())
