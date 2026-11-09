@@ -1,6 +1,6 @@
 {
-  "private_source_head": "e6ebc04c9f86830c8b535cce27ff3559077f55d3",
-  "source_state": "Reviewed passive function register counters and exclusive full-network ledger; no new dispatch",
+  "private_source_head": "96caa9e093dbd804e63e863386f2040889b92f01",
+  "source_state": "Reviewed passive counters and automatic readable per-site public timing tables; no new dispatch",
   "workflow_sha256": "cfe130638c64447e0e4ef3a8cf550d8bf011277dafd95ba0a7ab851ace5c6d83",
   "files": {
     "README.md": "5938e253cd418d2461457aca9b9c7b16736a32166a484ad03a629e4a301db27a",
@@ -61,7 +61,7 @@
     "fpga/openeye/run_pe_smoke.sh": "ca0fb8bd404b857104f33f78a7f6c0583e7f8bc87f35a32940537d29423a6243",
     "fpga/openeye/run_residual_block.py": "040ce7e5ec08c0d61f933a57fa98f5a7b3abc5e7f11adc989cfffa0a9fdac653",
     "fpga/openeye/runtime_activations.py": "84d716ddd386637ba4bc4ce93ff86775fabc7e18281e50ad774e1b21c254dcf7",
-    "fpga/openeye/seal_clocked_public_evidence.py": "d96f5e74b0075e92c3255d71f8cbd2a46feefcf91a8c85b05718e55c29adeda7",
+    "fpga/openeye/seal_clocked_public_evidence.py": "90f46e02b1223f263858db98a72173e32dc7fed3b460166db89b48393462bacd",
     "fpga/openeye/summarize_function_metrics.py": "52dace4a923780446801254ff0e9ef8cc13fd4aa7f42960748ec6ecd6711bd31",
     "fpga/openeye/validate_graph_program.py": "ac45ab71158d34fe97eb27c941d101bd77d97a11bf59c86f77dec92de436e0ac",
     "fpga/openeye/verify_fpga_bundle.py": "72a81f769fc8120febae1f19d9db5f52278397e68bbceb184689f435a82db490",
@@ -77,7 +77,7 @@
     "tests/test_clocked_workflow.py": "2d21ca7f5ccf114c6b83c3ebf0a162913d82c29ecef788912b6f8584c4cce129",
     "tests/test_function_cycle_metrics_rtl.py": "6a893048130930c80d8f62f497d90da241ea129710c99ac7a1c4cb7a81abed9c",
     "tests/test_function_metrics_audit.py": "d07438c6713e5946b289ec5dfd9ec5f5bb2a69ba7f47ed48dc6af3388130bab0",
-    "tests/test_function_metrics_export.py": "2cdfb68e4c24444a919121ab936ca62bf2c7d6d6d4286442491f02009d922bfb",
+    "tests/test_function_metrics_export.py": "e7ac2355719ba50f36713c2e8512c21537e2b1168a98afb985bf5e490206592f",
     "tests/test_graph_engine_rtl.py": "e3fa08056706e3b089b0a1b285efc259baa41da46f8124a3f52e6ef1936327a6",
     "tests/test_network_cycle_monitor_rtl.py": "abf2c9cbed9174d7a4a01aa7738636e407c5d8e399e85a05a0425f3127189ec6",
     "tests/test_openeye_output_frame_buffer_rtl.py": "80a0af9a28d1636c7fc9d22d239ce928e15c7beb20eaaee3f1444b0b51faf0d0",

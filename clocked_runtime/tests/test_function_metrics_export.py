@@ -11,6 +11,7 @@ def evidence(root):
     function=dict(zip(FUNCTION_COLUMNS,('graph','layer1.0.conv1',1,'relu','MEASURED','per_value',2,1,1,2,10,4,0,0,False)))
     step=dict(zip(STEP_COLUMNS,('graph','layer1.0.conv1',-1,'post_wait',23,True)))
     report=dict(result='PASS_INDEPENDENT_COMPLETE_CLOCKED_NETWORK_AUDIT',full_network_rtl_pass=True,
+        model='mac20',optimized=True,stem_channel_lanes=3,binary_sha256='b'*64,preparation_sha256='c'*64,
         full_network_cycles=23,function_metrics_protocol='passive-function-cycles-v1',functions=[function],
         exclusive_steps=[step],exclusive_cycles_sum=23,measured_instruction_ledger_rows=1,
         function_measurement_scope='synthetic test fixture',
@@ -34,6 +35,10 @@ def test_measured_tables_preserve_counters_without_publishing_private_files(tmp_
     assert manifest['full_network_rtl_pass']
     assert json.loads((output/'network/audit.json').read_text())==report
     assert (output/'network/functions.csv').is_file()and (output/'network/exclusive-steps.csv').is_file()
+    table=output/'network/function-tables/full-network-by-site.csv'
+    with table.open()as stream:rows=list(csv.DictReader(stream))
+    assert sum(int(row['total_cycles'])for row in rows)==23
+    assert 'network/function-tables/tables.md'in manifest['files']
     assert not (output/'private-operands.bin').exists()
 
 
@@ -51,3 +56,23 @@ def test_inconsistent_function_tables_are_not_published(tmp_path,mutation):
     (root/'network/audit.json').write_text(json.dumps(report))
     with pytest.raises(ValueError):seal(root,tmp_path/'public','optimized','a'*40,'123')
     assert not (tmp_path/'public').exists()
+
+
+def test_readable_sites_keep_controller_dma_and_sram_in_total(tmp_path):
+    from fpga.openeye.summarize_function_metrics import summarize
+    report=evidence(tmp_path/'private')
+    parts=[('stem','image_ingress',3),('stem','stem_compute_with_overlap',10),
+        ('stem','stem_fill_drain',2),('layer1.0.conv1','dma_feed',5),
+        ('layer1.0.conv1','acc_write',1),('layer1.0.conv1','scan_wait',1),
+        ('layer1.0.conv1','post_wait',1),('layer1.0.conv1','store',1),
+        ('layer1.0.residual','post_send',2),('gap','gap_wait',2),
+        ('fc','logit_wait',1),('dispatch','graph_launch',1)]
+    report['exclusive_steps']=[dict(scope='stem'if site=='stem'else'graph',site=site,instruction=-1,
+        step=step,cycles=cycles,additive_to_network=True)for site,step,cycles in parts]
+    report['full_network_cycles']=report['exclusive_cycles_sum']=30
+    rows=summarize(report);assert sum(row['total_cycles']for row in rows)==30
+    conv=next(row for row in rows if row['site']=='layer1.0.conv1')
+    assert conv['total_cycles']==9 and conv['dma_feed_wait']==5 and conv['sram_store']==1
+    assert rows[0]['site']=='stem'and rows[-1]['site']=='dispatch'
+    report['exclusive_steps'][0]['step']='unknown_unmeasured_work'
+    with pytest.raises(ValueError,match='Unclassified'):summarize(report)

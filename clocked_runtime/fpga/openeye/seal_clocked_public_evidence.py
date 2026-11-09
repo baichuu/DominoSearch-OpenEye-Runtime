@@ -134,6 +134,14 @@ def seal(root,output,profile,commit,run_id):
             with target.open('w',newline='')as stream:
                 writer=csv.DictWriter(stream,fieldnames=header);writer.writeheader();writer.writerows(rows)
             copied.append('network/'+name)
+        if 'functions'in network:
+            # Generate readable tables from the validated public JSON, never
+            # copy a runner-private Markdown document into the artifact.
+            from fpga.openeye.summarize_function_metrics import write
+            readable=output/'network/function-tables'
+            write(output/'network/audit.json',readable)
+            copied.extend('network/function-tables/'+name for name in
+                ('full-network-by-site.csv','functions.csv','exclusive-steps.csv','tables.md','table-manifest.json'))
     metadata=dict(schema_version=1,profile=profile,execution_commit=commit,run_id=run_id,
                   full_network_rtl_pass=network_pass,
                   result='COMPLETE_AUDITED_NETWORK'if network_pass else'NO_CERTIFIED_COMPLETE_NETWORK_RESULT',
