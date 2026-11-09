@@ -27,6 +27,9 @@ def execute(args):
     if ROOT in root.parents or root==ROOT:raise ValueError('Private run root required')
     prep=json.loads((root/'preparation.json').read_text())
     savable=bool(getattr(args,'savable',False))
+    stem_lanes=getattr(args,'stem_channel_lanes',1)
+    if type(stem_lanes)is not int or stem_lanes not in(1,3)or(stem_lanes!=1 and not prep.get('connected_stem')):
+        raise ValueError('Research stem lanes require a connected image-to-logit graph')
     for name,digest in prep['files'].items():
         if Path(name).name!=name or sha(root/name)!=digest:raise ValueError('Changed graph model/program')
     build=root/'clocked-build';build.mkdir()
@@ -50,7 +53,7 @@ def execute(args):
     for p in (work/'sim').glob('*.vh'):shutil.copyfile(p,include/p.name)
     modules=list(MODULES)
     if prep.get('connected_stem'):
-        modules+=['openeye_stem_frontend.sv','openeye_stem_conv_stream.sv','openeye_maxpool3_stream.sv']
+        modules+=['openeye_stem_frontend.sv','openeye_stem_conv_stream.sv','openeye_stem_conv_channel_parallel.sv','openeye_maxpool3_stream.sv']
     for name in modules:
         if savable and name=='openeye_graph_tb.sv':
             from fpga.openeye.resumable_graph_top import source
@@ -60,7 +63,8 @@ def execute(args):
     params=dict(MEMORY_VALUES=prep['memory_values'],INITIAL_VALUES=prep['initial_values'],
         PACKET_WORDS=prep['packet_words'],MAP_LANES=prep['map_lanes'],INSTRUCTIONS=prep['instructions'],
         COEFFICIENTS=prep['coefficient_count'],OUTPUT_BASE=prep['output_base'],OUTPUT_VALUES=prep['output_values'],
-        FRAME_CAPACITY=prep['raw_words'],USE_STEM=int(prep.get('connected_stem',False)),OPTIMIZED_CORE=int(prep.get('optimized',False)))
+        FRAME_CAPACITY=prep['raw_words'],USE_STEM=int(prep.get('connected_stem',False)),OPTIMIZED_CORE=int(prep.get('optimized',False)),
+        STEM_CHANNEL_LANES=stem_lanes)
     binary=build/'obj/Vopeneye_graph_tb'
     if savable:
         cpp=build/'clocked_resume_main.cpp';shutil.copyfile(RTL/cpp.name,cpp);sources.append(cpp)
@@ -121,4 +125,6 @@ if __name__=='__main__':
     parser.add_argument('--compiled-root',type=Path)
     parser.add_argument('--compile-only',action='store_true')
     parser.add_argument('--savable',action='store_true',help='Build the untimed snapshot driver; execution is managed by the resume runner')
+    parser.add_argument('--stem-channel-lanes',type=int,choices=(1,3),default=1,
+                        help='Explicit research configuration; default preserves scalar published profiles')
     execute(parser.parse_args())

@@ -81,3 +81,22 @@ All profiles use the same signed image, fixed-point arithmetic and effective
 numeric architecture parameters. Results cover one verification vector and
 modeled ROM/SRAM interfaces; they are not external DDR/AXI or board latency.
 Numeric failures expose fixed codes/instruction offsets, never operands.
+
+
+## Explicit three-channel stem candidate
+
+Manual `openeye-clocked-resumable.yml` input `stem_channel_lanes` defaults to
+`1`. User authorizes a full-network test with `profile=optimized` and lanes `3`.
+This hardware candidate banks the unchanged signed RGB image and weights by
+channel and uses three MAC lanes. Local full stems for dense/MAC20 pass every
+802,816 pre-activation and 200,704 pooled value; stem service cycles reduce
+118,164,487 to39,488,519. Image→stem→first complete convolution also passes the
+independent prefix check. These gates are not a new complete-network result.
+
+The requested lane count is authenticated in private checkpoint context and
+checked against the actual binary parameter before execute/final audit. Each
+job receives the same option. Native convolution→FC gate stays unchanged;
+only the graph frontend selects parallel lanes. New code uses a fresh chain,
+never old scalar/local snapshots. Inputs, masks, fixed-point contract and raw
+checkers stay unchanged. Additional multipliers/banking have no measured area
+or Fmax yet; no board speedup or accuracy claim follows from this dispatch.

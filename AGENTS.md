@@ -69,3 +69,19 @@ RTL counters, not external DDR/AXI contention, accuracy or measured board latenc
 Safe failure codes/coordinates may be public; no operands or raw exception body.
 Fresh resumable chains use one public commit, own gates and private snapshots;
 never import old-commit boundaries or label dispatch/prefix as network PASS.
+
+
+### Stem3 full-network trial authorized 2026-11-09
+
+User explicitly asks Actions for the locally verified channel-banked stem.
+Dispatch one optimized profile with explicit stem_channel_lanes=3 after source
+export controls. Preserve all three prior PASS runs at548df1a and scalar lane
+option default1. Same original immutable MAC20 input release; no model/mask/
+arithmetic/secret/ACL changes. Bind lane count in checkpoint AAD, verify actual
+binary lanes before continuation and final audit, pass it to every job. Fresh
+run/commit chain only; never import historical scalar or local snapshots.
+Local stem/first-conv prefix PASS is not full-network admission evidence by
+itself: same-dispatch native gate and every independent prefix/final audit must
+pass. Report lane metadata. No synthesis/Fmax/accuracy/board claims. Keep
+necessary runtime-only export; private experiment scripts/docs/data are not
+needed for CI and remain private. Do not duplicate dispatch this candidate.

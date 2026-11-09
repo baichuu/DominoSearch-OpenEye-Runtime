@@ -286,6 +286,7 @@ def audit(args):
                 resume_chain['chunks'][-1]['end_status']['last_logged_instruction']==(0xffffffff if stop_after==-1 else stop_after),
                 'Snapshot does not end at the checked prefix instruction')
         return dict(result='PASS_CHECKED_CLOCKED_PREFIX_NOT_NETWORK',model=prep['model'],optimized=prep['optimized'],openeye_pin=PIN,
+            stem_channel_lanes=identity['parameters'].get('STEM_CHANNEL_LANES',1),
             stop_after_instruction=stop_after,checked_stem_values=200704,checked_forwarded_values=forwarded_count,
             checked_stages=len(stage_records),checked_postops=len(post_records),checked_raw_words=raw.count,accepted_input_words=accepted.count,
             observed_prefix_cycles=resume_chain['chunks'][-1]['end_status']['observed_cycles'],
@@ -314,7 +315,9 @@ def audit(args):
         interval='first signed image byte accepted to last Q40 logit stored; one clock, no reset across graph',
         activation_measurement='BN, requantization and ReLU execute in one fused RTL pipeline; reported together, not separately inferred',
         model_initialization='before interval; all inference DMA, SRAM, PSUM, postops and stalls included',
-        hardware_scope='common scalar stem + shared OpenEye core + clocked graph scratch and controller',
+        hardware_scope=('common scalar stem'if identity['parameters'].get('STEM_CHANNEL_LANES',1)==1 else
+                        'research three-channel MAC stem')+' + shared OpenEye core + clocked graph scratch and controller',
+        stem_channel_lanes=identity['parameters'].get('STEM_CHANNEL_LANES',1),
         verification_vectors=1,
         external_memory_model='preloaded model ROM and synchronous scratch SRAM; no external DDR or AXI contention model',
         latency_scope='cycles of modeled RTL and interfaces; not measured board latency',

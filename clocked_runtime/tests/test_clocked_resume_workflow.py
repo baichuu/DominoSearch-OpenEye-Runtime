@@ -19,6 +19,7 @@ def test_all21_stages_have_three_ordered_slots_and_mandatory_final_audit(tmp_pat
             name=f'phase_{phase:02d}_{slot}';job=data['jobs'][name]
             assert job['uses']=='./.github/workflows/openeye-clocked-chunk.yml'
             assert job['with']['phase']==phase and job['with']['slot']==slot
+            assert job['with']['stem_channel_lanes']=='${{ inputs.stem_channel_lanes }}'
             if previous:assert job['needs']==[previous]and f"needs.{previous}.result == 'success'"in job['if']
             if previous and slot==0:assert '.outputs.phase_complete' in job['if']
             if slot:assert '.outputs.phase_complete' in job['with']['skip']
@@ -99,6 +100,7 @@ def test_numeric_failure_preserves_private_state_and_never_reexecutes_completed_
     monkeypatch.setattr(module,'choose_checkpoint',lambda *a:args.checkpoint)
     monkeypatch.setattr(module,'fetch',lambda *a:None)
     monkeypatch.setattr(module,'gate_proof',lambda *a:None)
+    monkeypatch.setattr(module,'verify_stem_policy',lambda *a:None)
     monkeypatch.setattr(module,'checked_prefixes',lambda *a:{'0':{}})
     monkeypatch.setattr(module,'validate_chain',lambda *a:{'chunks':[dict(index=1,end_status=dict(last_logged_instruction=4))]})
     def no_execution(*a,**k):raise AssertionError('Completed numeric boundary must not execute again')
@@ -112,3 +114,56 @@ def test_numeric_failure_preserves_private_state_and_never_reexecutes_completed_
     with pytest.raises(ValueError,match='exact private failed state preserved'):module.stage(args)
     assert events==['sealed','uploaded',('progress',False)]
     assert not(root/'checked-prefixes.json').exists()
+
+
+def test_requested_stem_hardware_reaches_every_job_and_final_audit(tmp_path):
+    (tmp_path/'.github/workflows').mkdir(parents=True);render(tmp_path)
+    main=yaml.safe_load((tmp_path/'.github/workflows/openeye-clocked-resumable.yml').read_text())
+    choice=main['on']['workflow_dispatch']['inputs']['stem_channel_lanes']
+    assert choice['default']=='1'and choice['options']==['1','3']
+    assert 'inputs.stem_channel_lanes'in main['concurrency']['group']
+    worker=yaml.safe_load((tmp_path/'.github/workflows/openeye-clocked-chunk.yml').read_text())
+    assert worker['on']['workflow_call']['inputs']['stem_channel_lanes']['default']=='1'
+    chunk=next(v for v in worker['jobs']['execute']['steps']if v.get('id')=='chunk')
+    final=next(v for v in main['jobs']['final_audit']['steps']if 'clocked_stage_job.py final'in v.get('run',''))
+    for step in(chunk,final):
+        assert step['env']['CLOCKED_STEM_CHANNEL_LANES']=='${{ inputs.stem_channel_lanes }}'
+        assert '--stem-channel-lanes "$CLOCKED_STEM_CHANNEL_LANES"'in step['run']
+
+
+@pytest.mark.parametrize('requested,actual,valid',[(1,1,True),(3,3,True),(3,1,False),(1,3,False),(2,1,False),(True,1,False)])
+def test_scalar_and_parallel_hardware_cannot_be_mislabeled_or_restored(tmp_path,monkeypatch,requested,actual,valid):
+    import fpga.openeye.clocked_resume as resume
+    from fpga.openeye.clocked_stage_job import verify_stem_policy
+    monkeypatch.setattr(resume,'identity',lambda root:dict(parameters=dict(STEM_CHANNEL_LANES=actual)))
+    args=SimpleNamespace(stem_channel_lanes=requested)
+    if valid:verify_stem_policy(args,tmp_path)
+    else:
+        with pytest.raises(ValueError):verify_stem_policy(args,tmp_path)
+
+
+def test_authenticated_context_binds_requested_stem_lane_count(monkeypatch):
+    import fpga.openeye.clocked_stage_job as module
+    monkeypatch.setenv('GITHUB_SHA','a'*40);monkeypatch.setenv('GITHUB_RUN_ID','123')
+    monkeypatch.setenv('GITHUB_REPOSITORY','baichuu/DominoSearch-OpenEye-Runtime')
+    monkeypatch.setattr(module.subprocess,'run',lambda *a,**k:SimpleNamespace(returncode=0,stdout='a'*40))
+    release=dict(profiles=dict(optimized=dict(archive_sha256='b'*64,graph_preparation_sha256='c'*64)),arithmetic_contract_sha256='d'*64)
+    scalar=module.context(SimpleNamespace(profile='optimized',stem_channel_lanes=1),release)
+    parallel=module.context(SimpleNamespace(profile='optimized',stem_channel_lanes=3),release)
+    assert scalar['stem_channel_lanes']==1 and parallel['stem_channel_lanes']==3
+    assert {k:v for k,v in scalar.items()if k!='stem_channel_lanes'}=={k:v for k,v in parallel.items()if k!='stem_channel_lanes'}
+
+
+def test_initial_gate_stays_native_and_graph_build_receives_requested_stem_lanes(tmp_path,monkeypatch):
+    import fpga.openeye.clocked_stage_job as module
+    import fpga.openeye.run_graph_program as runner
+    import fpga.openeye.audit_graph_transition_gate as gate_audit
+    (tmp_path/'gate').mkdir();(tmp_path/'graph').mkdir();builds=[]
+    def fake_build(args):builds.append((args.root.name,getattr(args,'stem_channel_lanes',1)))
+    def fake_run(root,**kwargs):(root/'execution.json').write_text('{"complete":true}')
+    monkeypatch.setattr(runner,'execute',fake_build)
+    monkeypatch.setattr(module,'run',fake_run)
+    monkeypatch.setattr(module,'validate_chain',lambda *a,**k:None)
+    monkeypatch.setattr(gate_audit,'audit',lambda *a:dict(result='FABRICATED_ORCHESTRATION_CONTROL_NOT_DUT_EVIDENCE'))
+    module.prepare_initial(SimpleNamespace(workspace=tmp_path,stem_channel_lanes=3))
+    assert builds==[('gate',1),('graph',3)]

@@ -54,7 +54,8 @@ def audit(root,bundle):
     comparison=json.loads((ev/'comparison.json').read_text());contract=json.loads((ev/'contract.json').read_text())
     require(comparison['result']=='PASS_MATCHED_INT8_STEM_FRONTENDS'and comparison['full_network_cycles']is None,'Wrong frontend claim')
     identity=json.loads((ev/'rtl/source-identity.json').read_text())
-    require(identity['geometry']==dict(WIDTH=224,HEIGHT=224,CHANNELS=3,FILTERS=64,KERNEL=7,STRIDE=2,SHIFT=24),'Wrong common geometry')
+    geometry=dict(identity['geometry']);lanes=geometry.pop('CHANNEL_LANES',1)
+    require(lanes in(1,3)and geometry==dict(WIDTH=224,HEIGHT=224,CHANNELS=3,FILTERS=64,KERNEL=7,STRIDE=2,SHIFT=24),'Wrong common geometry')
     require(identity['simulator']=='verilator'and identity['openeye_pin']=='9a742fbd42a55ebfa8fcd39aa41dfa36a367572f','Wrong execution identity')
     require(sha256(private/'rtl/build/obj/Vopeneye_stem_frontend_tb')==identity['binary_sha256'],'Changed actual binary')
     for name,digest in identity['rtl_sha256'].items():

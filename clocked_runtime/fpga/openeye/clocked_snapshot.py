@@ -104,6 +104,9 @@ def restore(source,root,context,key):
             build=json.loads((staging/'files/clocked-build/identity.json').read_text())
             require(build['preparation_sha256']==sha(root/'preparation.json')and
                     build['binary_sha256']==manifest['files']['clocked-build/obj/Vopeneye_graph_tb']['sha256'],'Checkpoint belongs to different model or binary')
+            if 'stem_channel_lanes'in context:
+                require(build['parameters'].get('STEM_CHANNEL_LANES',1)==context['stem_channel_lanes'],
+                        'Authenticated checkpoint contains the wrong stem hardware policy')
             for name in manifest['files']:
                 target=root/safe_path(name);target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
                 require(not target.is_symlink()and(not target.exists()or Path(name).parts[0]=='generated'),'Do not overwrite existing execution evidence')

@@ -5,6 +5,7 @@
 module openeye_stem_frontend #(
   parameter integer WIDTH=224,HEIGHT=224,CHANNELS=3,FILTERS=64,KERNEL=7,STRIDE=2,
   parameter integer SHIFT=24,
+  parameter integer CHANNEL_LANES=1,
   localparam integer CONV_WIDTH=(WIDTH+STRIDE-1)/STRIDE,
   localparam integer CONV_HEIGHT=(HEIGHT+STRIDE-1)/STRIDE
 ) (
@@ -46,12 +47,21 @@ module openeye_stem_frontend #(
       end
     end
   end
+  generate if(CHANNEL_LANES==1)begin:scalar
   openeye_stem_conv_stream #(.WIDTH(WIDTH),.HEIGHT(HEIGHT),.CHANNELS(CHANNELS),
     .FILTERS(FILTERS),.KERNEL(KERNEL),.STRIDE(STRIDE)) conv (
     .clk_i(clk_i),.rst_ni(rst_ni),.image_write_i(image_write_i),.weight_write_i(weight_write_i),
     .write_address_i(write_address_i),.write_data_i(write_data_i),.start_i(start_fire),
     .command_ready_o(conv_command_ready),.valid_o(conv_valid),.ready_i(conv_ready),.data_o(conv_data),
     .filter_o(conv_filter),.x_o(conv_x),.y_o(conv_y),.done_o(conv_done),.invalid_o(conv_invalid));
+  end else begin:channel_parallel
+  openeye_stem_conv_channel_parallel #(.WIDTH(WIDTH),.HEIGHT(HEIGHT),.CHANNELS(CHANNELS),
+    .FILTERS(FILTERS),.KERNEL(KERNEL),.STRIDE(STRIDE),.CHANNEL_LANES(CHANNEL_LANES)) conv (
+    .clk_i(clk_i),.rst_ni(rst_ni),.image_write_i(image_write_i),.weight_write_i(weight_write_i),
+    .write_address_i(write_address_i),.write_data_i(write_data_i),.start_i(start_fire),
+    .command_ready_o(conv_command_ready),.valid_o(conv_valid),.ready_i(conv_ready),.data_o(conv_data),
+    .filter_o(conv_filter),.x_o(conv_x),.y_o(conv_y),.done_o(conv_done),.invalid_o(conv_invalid));
+  end endgenerate
   openeye_postops_elastic post (
     .clk_i(clk_i),.rst_ni(rst_ni),.valid_i(conv_valid),.ready_o(conv_ready),
     .residual_i(1'b0),.relu_i(1'b1),.value_i({{32{conv_data[31]}},conv_data}),

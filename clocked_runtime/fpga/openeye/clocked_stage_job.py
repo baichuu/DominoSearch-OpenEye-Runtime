@@ -21,6 +21,18 @@ from fpga.openeye.validate_graph_program import require,PIN
 NAME=r'phase-\d{2}-slot-[012]-attempt-\d+\.aesgcm'
 
 
+def stem_lanes(args):
+    value=getattr(args,'stem_channel_lanes',1)
+    require(type(value)is int and value in(1,3),'Unsupported stem channel lane policy')
+    return value
+
+
+def verify_stem_policy(args,root):
+    from fpga.openeye.clocked_resume import identity
+    require(identity(root)['parameters'].get('STEM_CHANNEL_LANES',1)==stem_lanes(args),
+            'Actual model stem lanes differ from requested checkpoint policy')
+
+
 def context(args,release):
     commit=os.environ.get('GITHUB_SHA','');run_id=os.environ.get('GITHUB_RUN_ID','')
     require(re.fullmatch('[0-9a-f]{40}',commit)and re.fullmatch('[0-9]+',run_id),'Exact current public execution identity required')
@@ -29,13 +41,14 @@ def context(args,release):
     require(checkout.returncode==0 and checkout.stdout.strip()==commit,'Checkout differs from snapshot execution commit')
     return dict(protocol='domino-clocked-snapshot-v1',experiment='whole-network-int8-fixedpoint-v1',
         execution_commit=commit,run_id=run_id,profile=args.profile,openeye_pin=PIN,
+        stem_channel_lanes=stem_lanes(args),
         input_archive_sha256=release['profiles'][args.profile]['archive_sha256'],
         preparation_sha256=release['profiles'][args.profile]['graph_preparation_sha256'],
         arithmetic_contract_sha256=release['arithmetic_contract_sha256'])
 
 
 def remote(args,ctx):
-    folder='clocked-state-'+ctx['run_id']+'-'+args.profile+'-'+ctx['execution_commit'][:12]
+    folder='clocked-state-'+ctx['run_id']+'-'+args.profile+'-'+ctx['execution_commit'][:12]+'-s'+str(stem_lanes(args))
     verify_private_drive(args.config,PRIVATE_ROOT,'owner-only')
     result=subprocess.run(['rclone','mkdir','--config',str(args.config),PRIVATE_ROOT+'/'+folder],capture_output=True,text=True)
     require(result.returncode==0,'Cannot create existing-grant private checkpoint directory')
@@ -90,7 +103,7 @@ def prepare_initial(args):
     ET.SubElement(suite,'testcase',name='actual-output-and-counters-after-model-restore')
     ET.ElementTree(suite).write(graph/'gate-junit.xml',encoding='utf-8',xml_declaration=True)
     (graph/'checked-prefixes.json').write_text('{}\n')
-    execute(SimpleNamespace(root=graph,compiled_root=None,compile_only=True,savable=True))
+    execute(SimpleNamespace(root=graph,compiled_root=None,compile_only=True,savable=True,stem_channel_lanes=stem_lanes(args)))
 
 
 def checked_prefixes(root):
@@ -124,7 +137,7 @@ def checked_prefixes(root):
 def publish_progress(args,phase,status,checkpoint,cipher_hash,checked,failure=None):
     args.public.mkdir(parents=True,exist_ok=True)
     report=dict(result='CHECKED_PREFIX_NOT_NETWORK_PASS'if checked else'UNVERIFIED_EXECUTION_SNAPSHOT_NOT_STAGE_PASS',
-        profile=args.profile,phase=args.phase,phase_name=phase['name'],slot=args.slot,
+        profile=args.profile,stem_channel_lanes=stem_lanes(args),phase=args.phase,phase_name=phase['name'],slot=args.slot,
         phase_execution_complete=status,checkpoint_sha256=cipher_hash,numeric_prefix_checked=checked,
         full_network_rtl_pass=False,full_network_cycles=None)
     if failure is not None:
@@ -148,7 +161,7 @@ def stage(args):
     else:
         require(args.phase==args.slot==0,'Fresh state allowed only at stem start')
         prepare_initial(args)
-    gate_proof(root,release,args.profile)
+    verify_stem_policy(args,root);gate_proof(root,release,args.profile)
     checked=checked_prefixes(root)
     require(len(checked)<=args.phase+1,'Future stage proof in current execution')
     if str(args.phase)in checked:
@@ -191,7 +204,8 @@ def final(args):
     key_from_environment()
     release=json.loads(args.release.read_text());ctx=context(args,release);remote_name=remote(args,ctx)
     require(args.checkpoint and re.fullmatch(NAME,args.checkpoint),'Missing final authenticated execution state')
-    fetch(args.checkpoint,remote_name,args,ctx);root=args.workspace/'graph';validate_chain(root,complete=True);gate_proof(root,release,args.profile)
+    fetch(args.checkpoint,remote_name,args,ctx);root=args.workspace/'graph';validate_chain(root,complete=True)
+    verify_stem_policy(args,root);gate_proof(root,release,args.profile)
     checked=checked_prefixes(root);require(sorted(map(int,checked))==list(range(21)),'Incomplete21-phase execution')
     for i in range(20):require(checked[str(i)]['audit']['result']=='PASS_CHECKED_CLOCKED_PREFIX_NOT_NETWORK','Unchecked prior stage')
     args.public.mkdir(parents=True,exist_ok=True)
@@ -206,4 +220,5 @@ if __name__=='__main__':
     parser.add_argument('--profile',choices=('dense','mac20','optimized'),required=True)
     parser.add_argument('--phase',type=int,default=20);parser.add_argument('--slot',type=int,default=0)
     parser.add_argument('--checkpoint',default='');parser.add_argument('--wall-seconds',type=int,default=10800)
+    parser.add_argument('--stem-channel-lanes',type=int,choices=(1,3),default=1)
     args=parser.parse_args();stage(args)if args.mode=='stage'else final(args)

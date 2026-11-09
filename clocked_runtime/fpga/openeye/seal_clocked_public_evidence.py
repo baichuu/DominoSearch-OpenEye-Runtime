@@ -20,7 +20,7 @@ FIELDS={
      'stem_components','accepted_input_words','checked_raw_words','stages','postops','stem_latency_cycles','observation_slots','output_sha256',
      'real_rtl_junit','native_core_states','clock_period_ns','clock_scope','interval','activation_measurement','model_initialization','hardware_scope',
      'accuracy','synthesis','post_route','board','host','resume_chain_sha256','resumed_chunks',
-     'verification_vectors','external_memory_model','latency_scope'}}
+     'verification_vectors','external_memory_model','latency_scope','stem_channel_lanes'}}
 ROW_FIELDS={
  'stages':{'layer','scheme','commands','checked_values','latency_cycles','convolution_dma_accumulation_cycles','postops_cycles','output_sha256'},
  'postops':{'operation','site','checked_values','latency_cycles'},

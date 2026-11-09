@@ -3,6 +3,7 @@
 // No expected outputs are read by this testbench or supplied to the engine.
 `timescale 1ns/1ps
 module openeye_graph_tb;
+  parameter integer STEM_CHANNEL_LANES=1;
   parameter integer MEMORY_VALUES=16384,INITIAL_VALUES=4096,PACKET_WORDS=10000,
     MAP_LANES=1024,INSTRUCTIONS=3,COEFFICIENTS=8,OUTPUT_BASE=8192,OUTPUT_VALUES=512,
     FRAME_CAPACITY=65536,USE_STEM=0,OPTIMIZED_CORE=0;
@@ -47,7 +48,7 @@ module openeye_graph_tb;
     else accelerator_clock_enable<=1;
   end
   generate if(USE_STEM!=0)begin:connected_stem
-    openeye_stem_frontend frontend (
+    openeye_stem_frontend #(.CHANNEL_LANES(STEM_CHANNEL_LANES)) frontend (
       .clk_i(clk),.rst_ni(rst),.image_write_i(loading),.weight_write_i(stem_weight_write),
       .write_address_i(loading ? 32'(load_index) : setup_address),
       .write_data_i(loading ? initial_rom[load_index][7:0] : stem_weight_rom[setup_address]),
