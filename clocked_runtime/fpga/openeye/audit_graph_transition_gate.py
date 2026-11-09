@@ -52,6 +52,7 @@ def audit(root):
     marker=re.findall(r'GRAPH_OUTPUT_DONE values=(\d+) latency=(\d+) slots=(\d+) engine_cycles=(\d+)',(root/'simulation.log').read_text())
     require(len(marker)==1 and int(marker[0][0])==8 and int(marker[0][2])==int(marker[0][1])+1,'Missing actual protocol-gate timeline')
     return dict(result='PASS_ACTUAL_CONV_TO_NATIVE_FC_PROTOCOL_GATE',openeye_pin=PIN,optimized=prep['optimized'],
+        postops_pipelined=bool(identity['parameters'].get('POSTOPS_PIPELINED',0)),
         input_size=prep['size'],conv_filters=prep['filters'],checked_convolution_postops_values=len(expected_conv),
         checked_fc_logits=8,checked_raw_words=len(read_words(root/'actual-raw.hex',16)),accepted_words=len(actual),
         latency_cycles=int(marker[0][1]),binary_sha256=identity['binary_sha256'],preparation_sha256=sha(root/'preparation.json'),

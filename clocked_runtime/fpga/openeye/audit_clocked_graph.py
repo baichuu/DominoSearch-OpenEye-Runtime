@@ -332,6 +332,7 @@ def audit(args):
         hardware_scope=('common scalar stem'if identity['parameters'].get('STEM_CHANNEL_LANES',1)==1 else
                         'research three-channel MAC stem')+' + shared OpenEye core + clocked graph scratch and controller',
         stem_channel_lanes=identity['parameters'].get('STEM_CHANNEL_LANES',1),
+        postops_pipelined=bool(identity['parameters'].get('POSTOPS_PIPELINED',0)),
         verification_vectors=1,
         external_memory_model='preloaded model ROM and synchronous scratch SRAM; no external DDR or AXI contention model',
         latency_scope='cycles of modeled RTL and interfaces; not measured board latency',

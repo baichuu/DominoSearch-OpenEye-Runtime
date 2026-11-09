@@ -1,5 +1,6 @@
 name: OpenEye clocked snapshot stages
-run-name: Resumable ${{ inputs.profile }} ·stem${{ inputs.stem_channel_lanes }} ·21RTL stages · pin9a
+run-name: Resumable ${{ inputs.profile }} ·stem${{ inputs.stem_channel_lanes }} ·post${{ inputs.postops_pipelined }} ·21RTL
+  stages · pin9a
 'on':
   workflow_dispatch:
     inputs:
@@ -28,11 +29,19 @@ run-name: Resumable ${{ inputs.profile }} ·stem${{ inputs.stem_channel_lanes }}
         options:
         - '1'
         - '0'
+      postops_pipelined:
+        description: Opt-in shared-address postops controller overlap; arithmetic unchanged
+        type: choice
+        required: true
+        default: '0'
+        options:
+        - '0'
+        - '1'
 permissions:
   contents: read
 concurrency:
   group: openeye-clocked-resumable-${{ github.ref }}-${{ inputs.profile }}-stem${{ inputs.stem_channel_lanes }}-metrics${{
-    inputs.function_metrics }}
+    inputs.function_metrics }}-postops${{ inputs.postops_pipelined }}
   cancel-in-progress: false
 jobs:
   phase_00_0:
@@ -45,6 +54,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 0
       slot: 0
       skip: false
@@ -60,6 +70,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 0
       slot: 1
       skip: ${{ needs.phase_00_0.outputs.phase_complete == 'true' }}
@@ -77,6 +88,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 0
       slot: 2
       skip: ${{ needs.phase_00_1.outputs.phase_complete == 'true' }}
@@ -94,6 +106,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 1
       slot: 0
       skip: false
@@ -112,6 +125,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 1
       slot: 1
       skip: ${{ needs.phase_01_0.outputs.phase_complete == 'true' }}
@@ -129,6 +143,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 1
       slot: 2
       skip: ${{ needs.phase_01_1.outputs.phase_complete == 'true' }}
@@ -146,6 +161,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 2
       slot: 0
       skip: false
@@ -164,6 +180,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 2
       slot: 1
       skip: ${{ needs.phase_02_0.outputs.phase_complete == 'true' }}
@@ -181,6 +198,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 2
       slot: 2
       skip: ${{ needs.phase_02_1.outputs.phase_complete == 'true' }}
@@ -198,6 +216,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 3
       slot: 0
       skip: false
@@ -216,6 +235,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 3
       slot: 1
       skip: ${{ needs.phase_03_0.outputs.phase_complete == 'true' }}
@@ -233,6 +253,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 3
       slot: 2
       skip: ${{ needs.phase_03_1.outputs.phase_complete == 'true' }}
@@ -250,6 +271,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 4
       slot: 0
       skip: false
@@ -268,6 +290,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 4
       slot: 1
       skip: ${{ needs.phase_04_0.outputs.phase_complete == 'true' }}
@@ -285,6 +308,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 4
       slot: 2
       skip: ${{ needs.phase_04_1.outputs.phase_complete == 'true' }}
@@ -302,6 +326,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 5
       slot: 0
       skip: false
@@ -320,6 +345,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 5
       slot: 1
       skip: ${{ needs.phase_05_0.outputs.phase_complete == 'true' }}
@@ -337,6 +363,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 5
       slot: 2
       skip: ${{ needs.phase_05_1.outputs.phase_complete == 'true' }}
@@ -354,6 +381,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 6
       slot: 0
       skip: false
@@ -372,6 +400,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 6
       slot: 1
       skip: ${{ needs.phase_06_0.outputs.phase_complete == 'true' }}
@@ -389,6 +418,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 6
       slot: 2
       skip: ${{ needs.phase_06_1.outputs.phase_complete == 'true' }}
@@ -406,6 +436,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 7
       slot: 0
       skip: false
@@ -424,6 +455,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 7
       slot: 1
       skip: ${{ needs.phase_07_0.outputs.phase_complete == 'true' }}
@@ -441,6 +473,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 7
       slot: 2
       skip: ${{ needs.phase_07_1.outputs.phase_complete == 'true' }}
@@ -458,6 +491,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 8
       slot: 0
       skip: false
@@ -476,6 +510,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 8
       slot: 1
       skip: ${{ needs.phase_08_0.outputs.phase_complete == 'true' }}
@@ -493,6 +528,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 8
       slot: 2
       skip: ${{ needs.phase_08_1.outputs.phase_complete == 'true' }}
@@ -510,6 +546,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 9
       slot: 0
       skip: false
@@ -528,6 +565,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 9
       slot: 1
       skip: ${{ needs.phase_09_0.outputs.phase_complete == 'true' }}
@@ -545,6 +583,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 9
       slot: 2
       skip: ${{ needs.phase_09_1.outputs.phase_complete == 'true' }}
@@ -562,6 +601,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 10
       slot: 0
       skip: false
@@ -580,6 +620,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 10
       slot: 1
       skip: ${{ needs.phase_10_0.outputs.phase_complete == 'true' }}
@@ -597,6 +638,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 10
       slot: 2
       skip: ${{ needs.phase_10_1.outputs.phase_complete == 'true' }}
@@ -614,6 +656,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 11
       slot: 0
       skip: false
@@ -632,6 +675,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 11
       slot: 1
       skip: ${{ needs.phase_11_0.outputs.phase_complete == 'true' }}
@@ -649,6 +693,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 11
       slot: 2
       skip: ${{ needs.phase_11_1.outputs.phase_complete == 'true' }}
@@ -666,6 +711,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 12
       slot: 0
       skip: false
@@ -684,6 +730,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 12
       slot: 1
       skip: ${{ needs.phase_12_0.outputs.phase_complete == 'true' }}
@@ -701,6 +748,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 12
       slot: 2
       skip: ${{ needs.phase_12_1.outputs.phase_complete == 'true' }}
@@ -718,6 +766,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 13
       slot: 0
       skip: false
@@ -736,6 +785,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 13
       slot: 1
       skip: ${{ needs.phase_13_0.outputs.phase_complete == 'true' }}
@@ -753,6 +803,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 13
       slot: 2
       skip: ${{ needs.phase_13_1.outputs.phase_complete == 'true' }}
@@ -770,6 +821,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 14
       slot: 0
       skip: false
@@ -788,6 +840,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 14
       slot: 1
       skip: ${{ needs.phase_14_0.outputs.phase_complete == 'true' }}
@@ -805,6 +858,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 14
       slot: 2
       skip: ${{ needs.phase_14_1.outputs.phase_complete == 'true' }}
@@ -822,6 +876,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 15
       slot: 0
       skip: false
@@ -840,6 +895,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 15
       slot: 1
       skip: ${{ needs.phase_15_0.outputs.phase_complete == 'true' }}
@@ -857,6 +913,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 15
       slot: 2
       skip: ${{ needs.phase_15_1.outputs.phase_complete == 'true' }}
@@ -874,6 +931,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 16
       slot: 0
       skip: false
@@ -892,6 +950,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 16
       slot: 1
       skip: ${{ needs.phase_16_0.outputs.phase_complete == 'true' }}
@@ -909,6 +968,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 16
       slot: 2
       skip: ${{ needs.phase_16_1.outputs.phase_complete == 'true' }}
@@ -926,6 +986,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 17
       slot: 0
       skip: false
@@ -944,6 +1005,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 17
       slot: 1
       skip: ${{ needs.phase_17_0.outputs.phase_complete == 'true' }}
@@ -961,6 +1023,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 17
       slot: 2
       skip: ${{ needs.phase_17_1.outputs.phase_complete == 'true' }}
@@ -978,6 +1041,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 18
       slot: 0
       skip: false
@@ -996,6 +1060,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 18
       slot: 1
       skip: ${{ needs.phase_18_0.outputs.phase_complete == 'true' }}
@@ -1013,6 +1078,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 18
       slot: 2
       skip: ${{ needs.phase_18_1.outputs.phase_complete == 'true' }}
@@ -1030,6 +1096,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 19
       slot: 0
       skip: false
@@ -1048,6 +1115,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 19
       slot: 1
       skip: ${{ needs.phase_19_0.outputs.phase_complete == 'true' }}
@@ -1065,6 +1133,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 19
       slot: 2
       skip: ${{ needs.phase_19_1.outputs.phase_complete == 'true' }}
@@ -1082,6 +1151,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 20
       slot: 0
       skip: false
@@ -1100,6 +1170,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 20
       slot: 1
       skip: ${{ needs.phase_20_0.outputs.phase_complete == 'true' }}
@@ -1117,6 +1188,7 @@ jobs:
       profile: ${{ inputs.profile }}
       stem_channel_lanes: ${{ inputs.stem_channel_lanes }}
       function_metrics: ${{ inputs.function_metrics }}
+      postops_pipelined: ${{ inputs.postops_pipelined }}
       phase: 20
       slot: 2
       skip: ${{ needs.phase_20_1.outputs.phase_complete == 'true' }}
@@ -1178,13 +1250,15 @@ jobs:
         CLOCKED_PROFILE: ${{ inputs.profile }}
         CLOCKED_STEM_CHANNEL_LANES: ${{ inputs.stem_channel_lanes }}
         CLOCKED_FUNCTION_METRICS: ${{ inputs.function_metrics }}
+        CLOCKED_POSTOPS_PIPELINED: ${{ inputs.postops_pipelined }}
         CLOCKED_CHECKPOINT: ${{ needs.phase_20_2.outputs.checkpoint_name }}
       run: 'set +e
 
         ../../OpenEye/.venv/bin/python fpga/openeye/clocked_stage_job.py final --release fpga/openeye/clocked-release.json
         --workspace "$RUNNER_TEMP/clocked-inputs" --config "$RUNNER_TEMP/clocked-rclone.conf" --public "$RUNNER_TEMP/public-evidence"
         --profile "$CLOCKED_PROFILE" --stem-channel-lanes "$CLOCKED_STEM_CHANNEL_LANES" --function-metrics "$CLOCKED_FUNCTION_METRICS"
-        --checkpoint "$CLOCKED_CHECKPOINT" > "$RUNNER_TEMP/private-final-audit.log" 2>&1
+        --postops-pipelined "$CLOCKED_POSTOPS_PIPELINED" --checkpoint "$CLOCKED_CHECKPOINT" > "$RUNNER_TEMP/private-final-audit.log"
+        2>&1
 
         status=$?
 

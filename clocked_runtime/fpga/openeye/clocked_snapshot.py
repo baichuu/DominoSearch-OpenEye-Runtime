@@ -110,6 +110,9 @@ def restore(source,root,context,key):
             if 'function_metrics'in context:
                 require(build['parameters'].get('FUNCTION_METRICS',0)==context['function_metrics'],
                         'Authenticated checkpoint contains the wrong function counter policy')
+            if 'postops_pipelined'in context:
+                require(build['parameters'].get('POSTOPS_PIPELINED',0)==context['postops_pipelined'],
+                        'Authenticated checkpoint contains the wrong postops controller policy')
             for name in manifest['files']:
                 target=root/safe_path(name);target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
                 require(not target.is_symlink()and(not target.exists()or Path(name).parts[0]=='generated'),'Do not overwrite existing execution evidence')

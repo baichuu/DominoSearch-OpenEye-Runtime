@@ -5,6 +5,7 @@
 module openeye_graph_tb;
   parameter integer STEM_CHANNEL_LANES=1;
   parameter integer FUNCTION_METRICS=0;
+  parameter integer POSTOPS_PIPELINED=0;
   parameter integer MEMORY_VALUES=16384,INITIAL_VALUES=4096,PACKET_WORDS=10000,
     MAP_LANES=1024,INSTRUCTIONS=3,COEFFICIENTS=8,OUTPUT_BASE=8192,OUTPUT_VALUES=512,
     FRAME_CAPACITY=65536,USE_STEM=0,OPTIMIZED_CORE=0;
@@ -80,7 +81,7 @@ module openeye_graph_tb;
   end else begin:no_stem
     assign stem_ready=1;assign stem_valid=0;assign stem_data=0;assign stem_done=0;assign stem_invalid=0;
   end endgenerate
-  openeye_graph_engine #(.FRAME_CAPACITY(FRAME_CAPACITY)) engine (
+  openeye_graph_engine #(.FRAME_CAPACITY(FRAME_CAPACITY),.POSTOPS_PIPELINED(POSTOPS_PIPELINED)) engine (
     .clk_i(clk),.rst_ni(rst),.start_i(start),.command_ready_o(available),.instruction_address_o(instruction_address),
     .instruction_i(program_rom[instruction_address]),.packet_address_o(packet_address),.packet_data_i(packet_rom[packet_address]),
     .map_address_o(map_address),.map_data_i(map_rom[map_address]),.coefficient_address_o(coefficient_address),

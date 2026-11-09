@@ -29,6 +29,7 @@ def execute(args):
     savable=bool(getattr(args,'savable',False))
     stem_lanes=getattr(args,'stem_channel_lanes',1)
     function_metrics=bool(getattr(args,'function_metrics',False))
+    postops_pipelined=bool(getattr(args,'postops_pipelined',False))
     if type(stem_lanes)is not int or stem_lanes not in(1,3)or(stem_lanes!=1 and not prep.get('connected_stem')):
         raise ValueError('Research stem lanes require a connected image-to-logit graph')
     for name,digest in prep['files'].items():
@@ -73,7 +74,7 @@ def execute(args):
         PACKET_WORDS=prep['packet_words'],MAP_LANES=prep['map_lanes'],INSTRUCTIONS=prep['instructions'],
         COEFFICIENTS=prep['coefficient_count'],OUTPUT_BASE=prep['output_base'],OUTPUT_VALUES=prep['output_values'],
         FRAME_CAPACITY=prep['raw_words'],USE_STEM=int(prep.get('connected_stem',False)),OPTIMIZED_CORE=int(prep.get('optimized',False)),
-        STEM_CHANNEL_LANES=stem_lanes,FUNCTION_METRICS=int(function_metrics))
+        STEM_CHANNEL_LANES=stem_lanes,FUNCTION_METRICS=int(function_metrics),POSTOPS_PIPELINED=int(postops_pipelined))
     binary=build/'obj/Vopeneye_graph_tb'
     if savable:
         cpp=build/'clocked_resume_main.cpp';shutil.copyfile(RTL/cpp.name,cpp);sources.append(cpp)
@@ -137,4 +138,5 @@ if __name__=='__main__':
     parser.add_argument('--stem-channel-lanes',type=int,choices=(1,3),default=1,
                         help='Explicit research configuration; default preserves scalar published profiles')
     parser.add_argument('--function-metrics',action='store_true',help='Passive per-function and exclusive edge counters; does not alter the datapath')
+    parser.add_argument('--postops-pipelined',action='store_true',help='Opt-in shared-port controller overlap; fixed-point arithmetic unchanged')
     execute(parser.parse_args())

@@ -13,7 +13,8 @@ def instruction(op, *args):
 
 
 @pytest.mark.parametrize('stall', [0, 1])
-def test_scatter_channel_sum_affine_residual_gap_logit(openeye, tmp_path, stall):
+@pytest.mark.parametrize('pipelined', [0, 1])
+def test_scatter_channel_sum_affine_residual_gap_logit(openeye, tmp_path, stall,pipelined):
     rtl = Path(__file__).resolve().parents[1]/'fpga/openeye/rtl'
     relu = ReLUBackend(openeye, tmp_path/'relu', tmp_path/'relu-evidence')
     program = tmp_path/'program.hex'
@@ -37,7 +38,7 @@ reg sending=0,ready_core=1;
 assign ready=ready_core && !sending;
 assign core_valid=sending;
 assign raw=outgoing==0 ? 64'hfffffffdfffffffe : 64'h0000000500000004;
-openeye_graph_engine #(.FRAME_CAPACITY(8)) dut(
+openeye_graph_engine #(.FRAME_CAPACITY(8),.POSTOPS_PIPELINED('''+str(pipelined)+''')) dut(
  .clk_i(clk),.rst_ni(rst),.start_i(start),.command_ready_o(),.instruction_address_o(ip),.instruction_i(program_rom[ip]),
  .packet_address_o(packet),.packet_data_i(64'd0),.map_address_o(map),.map_data_i(maps[map]),
  .coefficient_address_o(coefficient),.coefficient_multiplier_i(m[coefficient]),.coefficient_bias_i(b[coefficient]),

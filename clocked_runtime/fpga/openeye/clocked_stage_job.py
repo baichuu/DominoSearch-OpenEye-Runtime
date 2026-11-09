@@ -33,6 +33,12 @@ def function_metrics(args):
     return value
 
 
+def postops_pipeline(args):
+    value=getattr(args,'postops_pipelined',0)
+    require(type(value)is int and value in(0,1),'Unsupported postops controller policy')
+    return value
+
+
 def verify_stem_policy(args,root):
     from fpga.openeye.clocked_resume import identity
     parameters=identity(root)['parameters']
@@ -40,6 +46,8 @@ def verify_stem_policy(args,root):
             'Actual model stem lanes differ from requested checkpoint policy')
     require(parameters.get('FUNCTION_METRICS',0)==function_metrics(args),
             'Actual model function counters differ from requested checkpoint policy')
+    require(parameters.get('POSTOPS_PIPELINED',0)==postops_pipeline(args),
+            'Actual model postops controller differs from requested checkpoint policy')
 
 
 def context(args,release):
@@ -52,13 +60,14 @@ def context(args,release):
         execution_commit=commit,run_id=run_id,profile=args.profile,openeye_pin=PIN,
         stem_channel_lanes=stem_lanes(args),
         function_metrics=function_metrics(args),
+        postops_pipelined=postops_pipeline(args),
         input_archive_sha256=release['profiles'][args.profile]['archive_sha256'],
         preparation_sha256=release['profiles'][args.profile]['graph_preparation_sha256'],
         arithmetic_contract_sha256=release['arithmetic_contract_sha256'])
 
 
 def remote(args,ctx):
-    folder='clocked-state-'+ctx['run_id']+'-'+args.profile+'-'+ctx['execution_commit'][:12]+'-s'+str(stem_lanes(args))+'-m'+str(function_metrics(args))
+    folder='clocked-state-'+ctx['run_id']+'-'+args.profile+'-'+ctx['execution_commit'][:12]+'-s'+str(stem_lanes(args))+'-m'+str(function_metrics(args))+'-p'+str(postops_pipeline(args))
     verify_private_drive(args.config,PRIVATE_ROOT,'owner-only')
     result=subprocess.run(['rclone','mkdir','--config',str(args.config),PRIVATE_ROOT+'/'+folder],capture_output=True,text=True)
     require(result.returncode==0,'Cannot create existing-grant private checkpoint directory')
@@ -89,12 +98,13 @@ def fetch(name,remote_name,args,ctx):
     restore(path,args.workspace/'graph',ctx,key_from_environment());return path
 
 
-def gate_proof(root,release,profile):
+def gate_proof(root,release,profile,postops_pipelined=0):
     import xml.etree.ElementTree as ET
     report=json.loads((root/'gate-audit.json').read_text());suite=ET.parse(root/'gate-junit.xml').getroot()
     require(report['result']=='PASS_ACTUAL_CONV_TO_NATIVE_FC_PROTOCOL_GATE'and report['openeye_pin']==PIN and
             report['preparation_sha256']==release['profiles'][profile]['gate_preparation_sha256']and report['real_rtl_junit']==1,
             'Wrong or missing same-execution actual gate')
+    require(report.get('postops_pipelined',False)==bool(postops_pipelined),'Native gate postops policy differs from full graph')
     require(suite.get('tests')=='1'and all(suite.get(k,'0')=='0'for k in('failures','errors','skipped'))and
             len(list(suite.iter('testcase')))==1 and not any(list(suite.iter(k))for k in('failure','error','skipped')),'Actual native gate JUnit is not PASS')
 
@@ -104,7 +114,8 @@ def prepare_initial(args):
     from fpga.openeye.audit_graph_transition_gate import audit
     import xml.etree.ElementTree as ET
     gate=args.workspace/'gate';graph=args.workspace/'graph'
-    execute(SimpleNamespace(root=gate,compiled_root=None,compile_only=True,savable=True))
+    execute(SimpleNamespace(root=gate,compiled_root=None,compile_only=True,savable=True,
+                            postops_pipelined=bool(postops_pipeline(args))))
     run(gate,stop_edges=300000,wall_seconds=10800)
     if not json.loads((gate/'execution.json').read_text())['complete']:run(gate,wall_seconds=10800)
     validate_chain(gate,complete=True);proof=audit(gate)
@@ -114,7 +125,7 @@ def prepare_initial(args):
     ET.ElementTree(suite).write(graph/'gate-junit.xml',encoding='utf-8',xml_declaration=True)
     (graph/'checked-prefixes.json').write_text('{}\n')
     execute(SimpleNamespace(root=graph,compiled_root=None,compile_only=True,savable=True,stem_channel_lanes=stem_lanes(args),
-                            function_metrics=bool(function_metrics(args))))
+                            function_metrics=bool(function_metrics(args)),postops_pipelined=bool(postops_pipeline(args))))
 
 
 def checked_prefixes(root):
@@ -148,7 +159,8 @@ def checked_prefixes(root):
 def publish_progress(args,phase,status,checkpoint,cipher_hash,checked,failure=None):
     args.public.mkdir(parents=True,exist_ok=True)
     report=dict(result='CHECKED_PREFIX_NOT_NETWORK_PASS'if checked else'UNVERIFIED_EXECUTION_SNAPSHOT_NOT_STAGE_PASS',
-        profile=args.profile,stem_channel_lanes=stem_lanes(args),function_metrics=function_metrics(args),phase=args.phase,phase_name=phase['name'],slot=args.slot,
+        profile=args.profile,stem_channel_lanes=stem_lanes(args),function_metrics=function_metrics(args),
+        postops_pipelined=postops_pipeline(args),phase=args.phase,phase_name=phase['name'],slot=args.slot,
         phase_execution_complete=status,checkpoint_sha256=cipher_hash,numeric_prefix_checked=checked,
         full_network_rtl_pass=False,full_network_cycles=None)
     if failure is not None:
@@ -172,7 +184,7 @@ def stage(args):
     else:
         require(args.phase==args.slot==0,'Fresh state allowed only at stem start')
         prepare_initial(args)
-    verify_stem_policy(args,root);gate_proof(root,release,args.profile)
+    verify_stem_policy(args,root);gate_proof(root,release,args.profile,postops_pipeline(args))
     checked=checked_prefixes(root)
     require(len(checked)<=args.phase+1,'Future stage proof in current execution')
     if str(args.phase)in checked:
@@ -216,7 +228,7 @@ def final(args):
     release=json.loads(args.release.read_text());ctx=context(args,release);remote_name=remote(args,ctx)
     require(args.checkpoint and re.fullmatch(NAME,args.checkpoint),'Missing final authenticated execution state')
     fetch(args.checkpoint,remote_name,args,ctx);root=args.workspace/'graph';validate_chain(root,complete=True)
-    verify_stem_policy(args,root);gate_proof(root,release,args.profile)
+    verify_stem_policy(args,root);gate_proof(root,release,args.profile,postops_pipeline(args))
     checked=checked_prefixes(root);require(sorted(map(int,checked))==list(range(21)),'Incomplete21-phase execution')
     for i in range(20):require(checked[str(i)]['audit']['result']=='PASS_CHECKED_CLOCKED_PREFIX_NOT_NETWORK','Unchecked prior stage')
     args.public.mkdir(parents=True,exist_ok=True)
@@ -233,4 +245,5 @@ if __name__=='__main__':
     parser.add_argument('--checkpoint',default='');parser.add_argument('--wall-seconds',type=int,default=10800)
     parser.add_argument('--stem-channel-lanes',type=int,choices=(1,3),default=1)
     parser.add_argument('--function-metrics',type=int,choices=(0,1),default=0)
+    parser.add_argument('--postops-pipelined',type=int,choices=(0,1),default=0)
     args=parser.parse_args();stage(args)if args.mode=='stage'else final(args)

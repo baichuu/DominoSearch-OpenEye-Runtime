@@ -127,3 +127,29 @@ Actual controls preserve output and total cycles, including a save/restore
 inside the pipeline. A connected stem3/first-convolution prefix preserves
 45,143,129 cycles and every actual trace. This is prefix validation, not a
 completed full-network function result or a new accuracy/Fmax/board claim.
+
+
+## Opt-in shared-port postops controller
+
+Manual `postops_pipelined=1` overlaps affine/residual inputs with earlier
+outputs in the existing pipeline. Default remains0. Arithmetic, model/masks,
+FIFO depth8 and shared scratch address are unchanged. Writes occupy non-read
+slots; no additional memory port is assumed. Exact in-place and disjoint
+buffers are supported; shifted overlap fails before writes.
+
+All stages/final bind the option to authenticated checkpoint identity and
+actual ELF parameters. The same-dispatch native convolution/FC gate uses the
+same controller policy. Never import a legacy checkpoint under a new policy.
+Existing Actions executions keep their original source and measurements.
+
+Local independent native gates check50,176conv outputs,8FC logits,32,264raw
+words and37,980accepted words:1,968,407→1,667,356cycles, all five actual traces
+identical. Candidate with passive counters and three save/restore chunks has
+the same total/output and exact exclusive ledger. Focused200,704-value postops
+controls reduce affine66.67% and residual54.55%. These are gate/control results,
+not candidate full-network, accuracy, Fmax or board evidence. No candidate
+network has been dispatched. The~9% additional network reduction is a projection.
+
+When overlap is enabled, zero exclusive STORE-state cycles do not mean zero
+SRAM writes: writes happen during other state slots and all actual outputs
+remain checked. Public reports label the controller policy explicitly.

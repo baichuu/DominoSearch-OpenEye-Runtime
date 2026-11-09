@@ -11,6 +11,9 @@ name: One bounded clocked snapshot stage
       function_metrics:
         type: string
         default: '0'
+      postops_pipelined:
+        type: string
+        default: '0'
       phase:
         type: number
         required: true
@@ -105,7 +108,7 @@ jobs:
         tests/test_clocked_snapshot.py tests/test_clocked_resume_control.py tests/test_clocked_resume_workflow.py tests/test_clocked_workflow.py
         tests/test_clocked_audit_failure.py tests/test_clocked_convolution_zero_policy.py tests/test_retain_zero_sparse_format_rtl.py
         tests/test_clocked_pooling_ring.py tests/test_openeye_stem_frontend_rtl.py tests/test_function_metrics_audit.py tests/test_function_metrics_export.py
-        tests/test_function_cycle_metrics_rtl.py
+        tests/test_function_cycle_metrics_rtl.py tests/test_graph_engine_rtl.py tests/test_graph_postops_pipeline_rtl.py
 
         fpga/openeye/run_pe_smoke.sh ../../OpenEye "$RUNNER_TEMP/pinned-pe-smoke.log"
 
@@ -130,6 +133,7 @@ jobs:
         CLOCKED_PROFILE: ${{ inputs.profile }}
         CLOCKED_STEM_CHANNEL_LANES: ${{ inputs.stem_channel_lanes }}
         CLOCKED_FUNCTION_METRICS: ${{ inputs.function_metrics }}
+        CLOCKED_POSTOPS_PIPELINED: ${{ inputs.postops_pipelined }}
         CLOCKED_CHECKPOINT: ${{ inputs.checkpoint }}
         CLOCKED_PHASE: ${{ inputs.phase }}
         CLOCKED_SLOT: ${{ inputs.slot }}
@@ -138,8 +142,8 @@ jobs:
         ../../OpenEye/.venv/bin/python fpga/openeye/clocked_stage_job.py stage --release fpga/openeye/clocked-release.json
         --workspace "$RUNNER_TEMP/clocked-inputs" --config "$RUNNER_TEMP/clocked-rclone.conf" --public "$RUNNER_TEMP/public-progress"
         --profile "$CLOCKED_PROFILE" --stem-channel-lanes "$CLOCKED_STEM_CHANNEL_LANES" --function-metrics "$CLOCKED_FUNCTION_METRICS"
-        --phase "$CLOCKED_PHASE" --slot "$CLOCKED_SLOT" --checkpoint "$CLOCKED_CHECKPOINT" --wall-seconds 10800 > "$RUNNER_TEMP/private-snapshot-stage.log"
-        2>&1
+        --postops-pipelined "$CLOCKED_POSTOPS_PIPELINED" --phase "$CLOCKED_PHASE" --slot "$CLOCKED_SLOT" --checkpoint "$CLOCKED_CHECKPOINT"
+        --wall-seconds 10800 > "$RUNNER_TEMP/private-snapshot-stage.log" 2>&1
 
         status=$?
 

@@ -6,7 +6,9 @@
 // contain addresses/validity only, never golden tensor values.
 `timescale 1ns/1ps
 module openeye_graph_engine #(
-  parameter integer FRAME_CAPACITY=65536
+  parameter integer FRAME_CAPACITY=65536,
+  parameter integer POSTOPS_PIPELINED=0,
+  parameter integer POSTOPS_FIFO_DEPTH=8
 ) (
   input wire clk_i,rst_ni,start_i,
   output wire command_ready_o,
@@ -65,6 +67,12 @@ module openeye_graph_engine #(
   wire feeding=state==DMA_FEED && sent<a2;
   wire source_valid=feeding && (!in_activation || linear_padding || encoder_valid);
   wire post_ready,post_valid;
+  wire streaming_post=POSTOPS_PIPELINED!=0 && (op==2 || op==3);
+  // Scratch has a shared read/write address. Drain only on non-read slots;
+  // never assume a free second memory port when overlapping the pipeline.
+  wire post_sink_ready=streaming_post ?
+      (state==SCAN_WAIT || state==SKIP_WAIT || state==POST_SEND || state==POST_WAIT) : state==POST_WAIT;
+  wire post_output_fire=post_valid && post_sink_ready;
   wire signed [63:0] post_data;
   wire gap_ready,gap_valid,logit_ready,logit_valid,logit_invalid;
   wire [63:0] gap_data;
@@ -93,12 +101,12 @@ module openeye_graph_engine #(
     .read_enable_o(encoder_read),.read_address_o(encoder_address),.read_data_i(memory_data_i[7:0]),
     .valid_o(encoder_valid),.ready_i(feeding && in_activation && !linear_padding && source_ready),.data_o(encoder_data),
     .done_o(encoder_done),.invalid_o(encoder_invalid));
-  openeye_postops_elastic post (
+  openeye_postops_elastic #(.FIFO_DEPTH(POSTOPS_FIFO_DEPTH)) post (
     .clk_i(clk_i),.rst_ni(rst_ni),.valid_i(state==POST_SEND),.ready_o(post_ready),
     .residual_i(op==3),.relu_i(op==3 || a6!=0),.value_i(value),.skip_i(skip_value),
     .multiplier_i(coefficient_multiplier_i),.bias_i(coefficient_bias_i),
     .skip_multiplier_i(coefficient_bias_i),.shift_i(a7[5:0]),
-    .valid_o(post_valid),.ready_i(state==POST_WAIT),.data_o(post_data));
+    .valid_o(post_valid),.ready_i(post_sink_ready),.data_o(post_data));
   openeye_gap_elastic gap (
     .clk_i(clk_i),.rst_ni(rst_ni),.valid_i(state==GAP_SEND),.ready_o(gap_ready),.data_i(value[7:0]),.pixels_i(a4[15:0]),
     .valid_o(gap_valid),.ready_i(state==GAP_WAIT),.data_o(gap_data));
@@ -115,6 +123,9 @@ module openeye_graph_engine #(
     if(state==SCAN_READ)begin memory_read_o=1;memory_address_o=a1+index;end
     if(state==SKIP_READ)begin memory_read_o=1;memory_address_o=a6+index;end
     if(state==STORE)begin memory_write_o=1;memory_address_o=a2+output_index;end
+    if(streaming_post && post_output_fire)begin
+      memory_write_o=1;memory_address_o=a2+output_index;memory_data_o=post_data;
+    end
   end
   always @(posedge clk_i or negedge rst_ni)begin
     if(!rst_ni)begin
@@ -135,7 +146,19 @@ module openeye_graph_engine #(
           instruction<=instruction_i;index<=0;output_index<=0;skip_value<=0;
           if(instruction_i[0+:32]==0)begin state<=IDLE;done_o<=1;end
           else if(instruction_i[0+:32]==1)state<=DMA_START;
-          else if(instruction_i[0+:32]<=5 && instruction_i[96+:32]!=0)state<=SCAN_READ;
+          else if(instruction_i[0+:32]<=5 && instruction_i[96+:32]!=0)begin
+            state<=SCAN_READ;
+            // Exact in-place and disjoint ranges are safe. Reject shifted
+            // overlapping destinations before reading or writing any value.
+            if(POSTOPS_PIPELINED!=0 && (instruction_i[0+:32]==2 || instruction_i[0+:32]==3))begin
+              if(instruction_i[64+:32]!=instruction_i[32+:32] &&
+                 {1'b0,instruction_i[64+:32]} < {1'b0,instruction_i[32+:32]}+{1'b0,instruction_i[96+:32]} &&
+                 {1'b0,instruction_i[32+:32]} < {1'b0,instruction_i[64+:32]}+{1'b0,instruction_i[96+:32]})begin invalid_o<=1;state<=IDLE;end
+              if(instruction_i[0+:32]==3 && instruction_i[64+:32]!=instruction_i[192+:32] &&
+                 {1'b0,instruction_i[64+:32]} < {1'b0,instruction_i[192+:32]}+{1'b0,instruction_i[96+:32]} &&
+                 {1'b0,instruction_i[192+:32]} < {1'b0,instruction_i[64+:32]}+{1'b0,instruction_i[96+:32]})begin invalid_o<=1;state<=IDLE;end
+            end
+          end
           else begin invalid_o<=1;state<=IDLE;end
         end
         DMA_START:if(frame_ready && encoder_ready && !sender_pending)begin
@@ -171,8 +194,11 @@ module openeye_graph_engine #(
         end
         SKIP_READ:state<=SKIP_WAIT;
         SKIP_WAIT:begin skip_value<=memory_data_i;state<=POST_SEND;end
-        POST_SEND:if(post_ready)state<=POST_WAIT;
-        POST_WAIT:if(post_valid)begin store_value<=post_data;state<=STORE;end
+        POST_SEND:if(post_ready)begin
+          if(streaming_post && index!=a3-1)begin index<=index+1'b1;state<=SCAN_READ;end
+          else state<=POST_WAIT;
+        end
+        POST_WAIT:if(!streaming_post && post_valid)begin store_value<=post_data;state<=STORE;end
         GAP_SEND:if(gap_ready)begin
           if(index%a4==a4-1)state<=GAP_WAIT;
           else begin index<=index+1'b1;state<=SCAN_READ;end
@@ -189,6 +215,11 @@ module openeye_graph_engine #(
           instruction_address_o<=instruction_address_o+1'b1;state<=FETCH;end
         default:begin invalid_o<=1;state<=IDLE;end
       endcase
+      if(streaming_post && post_output_fire)begin
+        output_index<=output_index+1'b1;
+        if(output_index==a3-1)state<=NEXT;
+        if(output_index>=a3 || output_index>index)invalid_o<=1;
+      end
     end
   end
 endmodule

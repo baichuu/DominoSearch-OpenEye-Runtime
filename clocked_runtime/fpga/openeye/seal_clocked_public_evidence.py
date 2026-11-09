@@ -17,13 +17,13 @@ COMMON={'result','full_network_cycles','full_network_rtl_pass','failure_type',
 FIELDS={
  'ingress.json':COMMON|{'profile','model','optimized','archive_sha256','graph_preparation_sha256','gate_preparation_sha256','commands','openeye_pin'},
  'gate/audit.json':COMMON|{'openeye_pin','optimized','input_size','conv_filters','checked_convolution_postops_values','checked_fc_logits',
-     'checked_raw_words','accepted_words','latency_cycles','binary_sha256','preparation_sha256','actual_raw_sha256','actual_forwarded_sha256','real_rtl_junit','accuracy','board'},
+     'checked_raw_words','accepted_words','latency_cycles','binary_sha256','preparation_sha256','actual_raw_sha256','actual_forwarded_sha256','real_rtl_junit','accuracy','board','postops_pipelined'},
  'network/audit.json':COMMON|{'experiment','model','optimized','openeye_pin','source_checkpoint_sha256','source_scheme_sha256',
      'arithmetic_contract_sha256','input_sha256','preparation_sha256','binary_sha256','checked_stem_values','checked_forwarded_values','checked_logits',
      'stem_components','accepted_input_words','checked_raw_words','stages','postops','stem_latency_cycles','observation_slots','output_sha256',
      'real_rtl_junit','native_core_states','clock_period_ns','clock_scope','interval','activation_measurement','model_initialization','hardware_scope',
      'accuracy','synthesis','post_route','board','host','resume_chain_sha256','resumed_chunks',
-     'verification_vectors','external_memory_model','latency_scope','stem_channel_lanes',
+     'verification_vectors','external_memory_model','latency_scope','stem_channel_lanes','postops_pipelined',
      'function_metrics_protocol','functions','exclusive_steps','exclusive_cycles_sum',
      'measured_instruction_ledger_rows','function_measurement_scope'}}
 ROW_FIELDS={

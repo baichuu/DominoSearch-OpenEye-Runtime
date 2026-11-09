@@ -76,3 +76,12 @@ def test_readable_sites_keep_controller_dma_and_sram_in_total(tmp_path):
     assert rows[0]['site']=='stem'and rows[-1]['site']=='dispatch'
     report['exclusive_steps'][0]['step']='unknown_unmeasured_work'
     with pytest.raises(ValueError,match='Unclassified'):summarize(report)
+
+
+def test_pipelined_report_explains_overlapping_sram_writes(tmp_path):
+    root=tmp_path/'private';report=evidence(root);report['postops_pipelined']=True
+    (root/'network/audit.json').write_text(json.dumps(report))
+    output=tmp_path/'public';seal(root,output,'optimized','a'*40,'123')
+    text=(output/'network/function-tables/tables.md').read_text()
+    assert 'giá trị 0 không có nghĩa là không ghi dữ liệu'in text
+    assert json.loads((output/'network/audit.json').read_text())['postops_pipelined']is True

@@ -205,3 +205,66 @@ def test_counter_policy_is_authenticated_with_execution_identity(monkeypatch):
     on=module.context(SimpleNamespace(profile='optimized',function_metrics=1),release)
     assert off['function_metrics']==0 and on['function_metrics']==1
     assert {k:v for k,v in off.items()if k!='function_metrics'}=={k:v for k,v in on.items()if k!='function_metrics'}
+
+
+def test_postops_policy_reaches_every_slot_and_final_audit(tmp_path):
+    (tmp_path/'.github/workflows').mkdir(parents=True);render(tmp_path)
+    main=yaml.safe_load((tmp_path/'.github/workflows/openeye-clocked-resumable.yml').read_text())
+    assert 'inputs.postops_pipelined'in main['run-name']
+    choice=main['on']['workflow_dispatch']['inputs']['postops_pipelined']
+    assert choice['default']=='0'and choice['options']==['0','1']
+    for job in main['jobs'].values():
+        if 'uses'in job:assert job['with']['postops_pipelined']=='${{ inputs.postops_pipelined }}'
+    worker=yaml.safe_load((tmp_path/'.github/workflows/openeye-clocked-chunk.yml').read_text())
+    chunk=next(v for v in worker['jobs']['execute']['steps']if v.get('id')=='chunk')
+    final=next(v for v in main['jobs']['final_audit']['steps']if 'clocked_stage_job.py final'in v.get('run',''))
+    for step in(chunk,final):
+        assert step['env']['CLOCKED_POSTOPS_PIPELINED']=='${{ inputs.postops_pipelined }}'
+        assert '--postops-pipelined "$CLOCKED_POSTOPS_PIPELINED"'in step['run']
+
+
+@pytest.mark.parametrize('requested,actual,valid',[(0,0,True),(1,1,True),(1,0,False),(0,1,False),(2,0,False),(True,1,False)])
+def test_model_postops_policy_cannot_be_mislabeled(tmp_path,monkeypatch,requested,actual,valid):
+    import fpga.openeye.clocked_resume as resume
+    from fpga.openeye.clocked_stage_job import verify_stem_policy
+    monkeypatch.setattr(resume,'identity',lambda root:dict(parameters=dict(STEM_CHANNEL_LANES=1,POSTOPS_PIPELINED=actual)))
+    args=SimpleNamespace(stem_channel_lanes=1,postops_pipelined=requested)
+    if valid:verify_stem_policy(args,tmp_path)
+    else:
+        with pytest.raises(ValueError):verify_stem_policy(args,tmp_path)
+
+
+def test_initial_native_gate_and_graph_use_same_requested_postops_policy(tmp_path,monkeypatch):
+    import fpga.openeye.clocked_stage_job as module
+    import fpga.openeye.run_graph_program as runner
+    import fpga.openeye.audit_graph_transition_gate as gate_audit
+    (tmp_path/'gate').mkdir();(tmp_path/'graph').mkdir();builds=[]
+    monkeypatch.setattr(runner,'execute',lambda args:builds.append((args.root.name,getattr(args,'postops_pipelined',False))))
+    monkeypatch.setattr(module,'run',lambda root,**kwargs:(root/'execution.json').write_text('{"complete":true}'))
+    monkeypatch.setattr(module,'validate_chain',lambda *a,**k:None)
+    monkeypatch.setattr(gate_audit,'audit',lambda *a:dict(result='FABRICATED_ORCHESTRATION_CONTROL_NOT_DUT_EVIDENCE'))
+    module.prepare_initial(SimpleNamespace(workspace=tmp_path,postops_pipelined=1))
+    assert builds==[('gate',True),('graph',True)]
+
+
+def test_postops_controller_policy_is_authenticated(monkeypatch):
+    import fpga.openeye.clocked_stage_job as module
+    monkeypatch.setenv('GITHUB_SHA','a'*40);monkeypatch.setenv('GITHUB_RUN_ID','123')
+    monkeypatch.setenv('GITHUB_REPOSITORY','baichuu/DominoSearch-OpenEye-Runtime')
+    monkeypatch.setattr(module.subprocess,'run',lambda *a,**k:SimpleNamespace(returncode=0,stdout='a'*40))
+    release=dict(profiles=dict(optimized=dict(archive_sha256='b'*64,graph_preparation_sha256='c'*64)),arithmetic_contract_sha256='d'*64)
+    old=module.context(SimpleNamespace(profile='optimized',postops_pipelined=0),release)
+    new=module.context(SimpleNamespace(profile='optimized',postops_pipelined=1),release)
+    assert old['postops_pipelined']==0 and new['postops_pipelined']==1
+    assert {k:v for k,v in old.items()if k!='postops_pipelined'}=={k:v for k,v in new.items()if k!='postops_pipelined'}
+
+
+@pytest.mark.parametrize('actual,requested',[(False,1),(True,0)])
+def test_native_gate_policy_mismatch_blocks_full_graph(tmp_path,actual,requested):
+    from fpga.openeye.clocked_stage_job import gate_proof
+    report=dict(result='PASS_ACTUAL_CONV_TO_NATIVE_FC_PROTOCOL_GATE',openeye_pin='9a742fbd42a55ebfa8fcd39aa41dfa36a367572f',
+        preparation_sha256='a'*64,real_rtl_junit=1,postops_pipelined=actual)
+    (tmp_path/'gate-audit.json').write_text(json.dumps(report))
+    (tmp_path/'gate-junit.xml').write_text('<testsuite tests="1" failures="0"><testcase/></testsuite>')
+    release=dict(profiles=dict(optimized=dict(gate_preparation_sha256='a'*64)))
+    with pytest.raises(ValueError,match='policy differs'):gate_proof(tmp_path,release,'optimized',requested)

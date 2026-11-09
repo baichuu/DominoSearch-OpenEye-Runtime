@@ -108,3 +108,30 @@ Actual local crop50135cycles and stem3/firstconv45143129cycles match unchanged
 model traces. Full instrumented local measurement is pending; local prefix
 is not CI/full-network PASS. SOURCE_SHA256 identifies reviewed private source.
 Raw logs/ROMs/tensors/coefficients/models/checkpoints remain private.
+
+
+### Opt-in postops controller overlap, 2026-11-09
+
+User selects the safer controller optimization. POSTOPS_PIPELINED defaults0;
+manual choice1 overlaps affine/residual inputs and outputs with the same
+arithmetic and shared scratch address, without additional memory ports.
+Exact in-place/disjoint buffers work; shifted overlap rejects before writes.
+All stages/final, checkpoint AAD/private folder and actual binary parameters
+bind the policy. The same-dispatch native gate must use the requested policy.
+Default FIFO depth8, source/masks/precision/core are unchanged. Existing runs
+keep their exact old commit; do not cancel or relabel them. No new candidate
+network is authorized/dispatched merely by publishing this prepared option.
+
+Local independent actual native gates: legacy1968407 vs candidate1667356cycles,
+50176conv values/8FC logits/32264raw/37980accepted; all5traces byte-identical.
+Candidate with passive counters and3save/restore chunks has same outputs and
+exact counter sum1667356. Three real audit JUnit PASS. Full200704-value
+postops controls reduce affine66.67%,residual54.55%; these are focused gates,
+not full-network/Fmax/accuracy/board evidence. ~9% network gain is projection.
+
+Reviewed82source-file export preserves ready immutable archive registry.
+183 runtime/RTL admission controls PASS;24privacy PASS;actionlint1.7.12 PASS.
+Additional workflow title policy control PASS; titles show post0/post1. No
+model tensors, coefficients, binaries, snapshots or private research reports
+are exported. Exclusive STORE state0 does not mean zero SRAM writes: writes
+overlap other states and the actual output coverage remains checked.

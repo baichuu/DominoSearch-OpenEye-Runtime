@@ -65,6 +65,9 @@ def write(audit,output):
         'DMA gồm cấp dữ liệu và chờ core. SRAM/PSUM/controller được tính riêng. Stem compute chạy chồng lấp BN/ReLU/maxpool.',
         '', '| Site | Tổng cycle | DMA | PSUM | SRAM read/wait + store | Postops | GAP | FC affine | Controller | Stem/input |',
         '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
+    if report.get('postops_pipelined'):
+        lines[4:4]=['Postops controller chạy overlap: các lần ghi SRAM diễn ra trong slot SCAN_WAIT/SKIP_WAIT/POST_SEND/POST_WAIT.',
+            'Cột SRAM store chỉ đếm cycle riêng ở state STORE; giá trị 0 không có nghĩa là không ghi dữ liệu. Số output writes vẫn được kiểm đủ.', '']
     for row in rows:
         values=[row['total_cycles'],row['dma_feed_wait'],row['psum_scatter_accumulate'],row['sram_read_wait']+row['sram_store'],
                 row['postops_send_wait'],row['gap_send_wait'],row['fc_affine_send_wait'],row['controller'],
